@@ -1,5 +1,0 @@
-#!/bin/sh
-tcpath=/home/predo/dev/repos/rpiOS/scripts/../compiler/gcc-arm-9.2-2019.12-x86_64-arm-none-eabi/bin
-toolchain=/home/predo/dev/repos/rpiOS/scripts/../compiler/gcc-arm-9.2-2019.12-x86_64-arm-none-eabi/bin/arm-none-eabi-
-toolchain_version=9.2-2019.12
-toolchain_latest_version=9.2-2019.12

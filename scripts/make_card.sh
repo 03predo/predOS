@@ -4,7 +4,7 @@
 # - Brian Sidebotham <brian.sidebotham@gmail.com>
 
 scriptdir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-builddir=${scriptdir}/../
+builddir=${scriptdir}/../build
 imgdir=${scriptdir}/../img
 
 if [ ! -d ${imgdir} ] ; then

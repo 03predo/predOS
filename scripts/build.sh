@@ -13,3 +13,4 @@ fi
 cmake --build build
 
 ${scriptdir}/get_firmware_repo.sh
+${scriptdir}/make_card.sh
