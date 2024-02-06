@@ -1,17 +1,19 @@
 #!/bin/sh
 
-# Authors:
-# - Brian Sidebotham <brian.sidebotham@gmail.com>
+if [ $# -lt 2 ]; then
+    echo "usage: make_card.sh <kernel_file> <img_directory>" >&2
+    exit 1
+fi
 
 scriptdir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-builddir=${scriptdir}/../build
-imgdir=${scriptdir}/../img
+kernel_file=${1}
+imgdir=${2}
+
 
 if [ ! -d ${imgdir} ] ; then
   mkdir ${imgdir}
 fi
 
-kernel_file=kernel.img
 
 diskspace=16
 
@@ -118,7 +120,7 @@ fi
 # https://github.com/Distrotech/mtools/blob/master/mcopy.c
 # It's also mentioned in "man mtools" too
 # Copy the kernel image file to the image's FAT file system and name the target file kernel.img
-mcopy -v -i ${tmpcardpart} ${builddir}/${kernel_file} ::${kernel_filename}
+mcopy -v -i ${tmpcardpart} ${kernel_file} ::${kernel_filename}
 
 # Copy the rest of the files required in the same way
 # bootcode.bin is no longer used by the rpi4 - we could leave it in place though and the rpi4 will ignore it.

@@ -1,10 +1,19 @@
 #!/bin/sh
 
+
+
 scriptdir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 compilerdir=${scriptdir}/../compiler
+basedir=${scriptdir}/../
+firmwaredir=${scriptdir}/../firmware
 
 # Include the common shell functions
 . ${scriptdir}/common_functions.sh
+
+if [ ! -d ${firmwaredir} ] ; then
+  mkdir ${firmwaredir}
+  cd ${basedir} && git clone --depth 1 https://github.com/raspberrypi/firmware.git firmware
+fi
 
 toolchain_latest_version="9.2-2019.12"
 compiler=gcc-arm-${toolchain_latest_version}-x86_64-arm-none-eabi
@@ -12,6 +21,7 @@ archive=${compiler}.tar.xz
 source=https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-a/9.2-2019.12/binrel/${archive}
 
 if [ -d ${compilerdir}/${compiler} ]; then
+  echo "hello"
   exit
 fi
 
