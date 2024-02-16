@@ -1,4 +1,5 @@
 add_executable(kernel main.c)
+target_link_libraries(kernel PRIVATE drivers)
 add_custom_command(
     TARGET kernel POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} ${CMAKE_CURRENT_BINARY_DIR}/kernel${CMAKE_EXECUTABLE_SUFFIX} -O binary ${CMAKE_CURRENT_BINARY_DIR}/kernel.img

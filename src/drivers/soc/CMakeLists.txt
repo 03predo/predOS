@@ -1,0 +1,4 @@
+if(${CMAKE_SYSTEM_PROCESSOR} STREQUAL BCM2835)
+  set(RPIOS_SOC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bcm2835)
+  add_subdirectory(bcm2835)
+endif()

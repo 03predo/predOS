@@ -21,7 +21,6 @@ archive=${compiler}.tar.xz
 source=https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-a/9.2-2019.12/binrel/${archive}
 
 if [ -d ${compilerdir}/${compiler} ]; then
-  echo "hello"
   exit
 fi
 
