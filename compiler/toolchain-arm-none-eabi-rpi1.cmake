@@ -51,6 +51,8 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=arm1176jzf-s" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )
 set( CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )
 
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_C_FLAGS} -T ${CMAKE_CURRENT_SOURCE_DIR}/compiler/link.ld")
+
 execute_process(
   COMMAND ${CMAKE_SOURCE_DIR}/scripts/get_dependencies.sh
 )
