@@ -1,4 +1,4 @@
-add_executable(kernel main.c boot.S)
+add_executable(kernel kernel.c kernel_init.c boot.S)
 target_link_libraries(kernel PRIVATE drivers)
 add_custom_command(
     TARGET kernel POST_BUILD
@@ -7,9 +7,9 @@ add_custom_command(
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Convert the ELF output file to a binary image" )
 
-add_custom_target(make_card ALL DEPENDS make_card)
+add_custom_target(make_image ALL DEPENDS make_image)
 add_custom_command(
-  TARGET make_card POST_BUILD
+  TARGET make_image POST_BUILD
   DEPENDS kernel
   COMMAND ${CMAKE_SOURCE_DIR}/scripts/make_card.sh ${CMAKE_CURRENT_BINARY_DIR}/kernel.img ${RPIOS_IMG_DIR}
 )

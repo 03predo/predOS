@@ -1,6 +1,12 @@
 .section ".text.boot"
 
 .global _start
+.global kernel_init
 
 _start:
-  bl kernel_init
+  ldr sp, =0x8000
+
+  b kernel_init
+
+_inf_loop:
+  b _inf_loop

@@ -4,9 +4,7 @@
 
 #define LED_PIN 16
 
-int kernel_init(void) __attribute__((naked)) __attribute__((section(".text.kernel_init")));
-int kernel_init(void)
-{
+int kernel_main(){
   uart_init();
   gpio_func(LED_PIN, GPIO_OUTPUT); 
 
@@ -20,4 +18,5 @@ int kernel_init(void)
 
     gpio_set(LED_PIN);
   }
+  return 0;
 }

@@ -43,7 +43,7 @@ extern gpio_t* GPIO;
  * AUXILIARIES
  */
 
-#define AUX_BASE 0x215000UL
+#define AUX_OFFSET 0x215000UL
 
 typedef struct {
   uint32_t IRQ;

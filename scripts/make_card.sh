@@ -27,7 +27,7 @@ for required in ${requires}; do
 done
 
 
-disk_image=${imgdir}/card.img
+disk_image=${imgdir}/predOS.img
 
 tmpcardimg=$(mktemp)
 tmpcardpart=$(mktemp)
