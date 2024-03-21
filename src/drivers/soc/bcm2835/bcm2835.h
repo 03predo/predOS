@@ -63,3 +63,20 @@ typedef struct {
 
 extern aux_t* AUX;
 
+/*
+ * TIMER
+ */
+
+#define SYS_TIMER_OFFSET 0x3000UL
+
+typedef struct {
+  uint32_t CS;
+  uint32_t CLO;
+  uint32_t CHI;
+  uint32_t C0;
+  uint32_t C1;
+  uint32_t C2;
+  uint32_t C3;
+} sys_timer_t;
+
+extern sys_timer_t* SYS_TIMER;

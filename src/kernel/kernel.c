@@ -1,5 +1,6 @@
 #include "stdint.h"
 #include "gpio.h"
+#include "sys_timer.h"
 #include "uart.h"
 
 #define LED_PIN 16
@@ -9,14 +10,13 @@ int kernel_main(){
   gpio_func(LED_PIN, GPIO_OUTPUT); 
 
   while(1){
-    uart_send();
-    for(uint32_t tim = 0; tim < 5000000; tim++);
+    //uart_send();
+    
+    gpio_set(LED_PIN);
+    sys_timer_sleep(500000);
 
     gpio_clear(LED_PIN);
-
-    for(uint32_t tim = 0; tim < 5000000; tim++);
-
-    gpio_set(LED_PIN);
+    sys_timer_sleep(500000);
   }
   return 0;
 }
