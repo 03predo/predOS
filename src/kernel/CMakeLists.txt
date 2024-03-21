@@ -1,4 +1,4 @@
-add_executable(kernel kernel.c kernel_init.c boot.S)
+add_executable(kernel kernel.c init.c isr.c boot.S)
 target_link_libraries(kernel PRIVATE drivers)
 add_custom_command(
     TARGET kernel POST_BUILD
