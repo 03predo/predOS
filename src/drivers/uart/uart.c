@@ -6,6 +6,7 @@
 #define SYSFREQ (250000000UL)
 #define UART_TX_PIN GPIO14
 #define UART_RX_PIN GPIO15
+#define UART_MULSR_TX_EMPTY ( 1 << 5 )
 
 status_t uart_init(){
 
@@ -39,8 +40,18 @@ status_t uart_init(){
   return STATUS_OK;
 }
 
-status_t uart_send(){
-  AUX->MU_IO = 'h';
+status_t uart_send(char c){
+  while(!(AUX->MU_LSR & UART_MULSR_TX_EMPTY));
+  AUX->MU_IO = c;
   return STATUS_OK;
 }
+
+status_t uart_print(char* s){
+  int i = 0;
+  while(s[i] != '\0'){
+    uart_send(s[i]);
+  }
+  return STATUS_OK;
+}
+
 

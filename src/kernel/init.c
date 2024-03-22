@@ -1,14 +1,14 @@
 
-extern int _bss_start;
-extern int _bss_end;
+extern int __bss_start__;
+extern int __bss_end__;
 
 extern int kernel_main();
 
 int kernel_init(void) __attribute__((naked)) __attribute__((section(".text.boot.kernel")));
 int kernel_init(void)
 {
-  int *bss = &_bss_start;
-  int* bss_end = &_bss_end;
+  int *bss = &__bss_start__;
+  int* bss_end = &__bss_end__;
 
   while(bss < bss_end) *bss++ = 0;
 

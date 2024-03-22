@@ -1,12 +1,12 @@
 cmake_minimum_required( VERSION 3.22.1 )
 
-project(rpiOS C ASM)
+project(predOS C ASM)
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0" )
 
-set( RPIOS_IMG_DIR ${CMAKE_BINARY_DIR}/img )
+set( IMG_DIR ${CMAKE_BINARY_DIR}/img )
 
 
 add_subdirectory(src)
