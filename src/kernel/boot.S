@@ -1,18 +1,5 @@
 .section ".text.boot"
-
-.equ    CPSR_MODE_USER,         0x10
-.equ    CPSR_MODE_FIQ,          0x11
-.equ    CPSR_MODE_IRQ,          0x12
-.equ    CPSR_MODE_SVR,          0x13
-.equ    CPSR_MODE_ABORT,        0x17
-.equ    CPSR_MODE_HYPERVISOR,   0x1A
-.equ    CPSR_MODE_UNDEFINED,    0x1B
-.equ    CPSR_MODE_SYSTEM,       0x1F
-.equ    CPSR_MODE_MASK,         0x1F
-
-.equ    CPSR_IRQ_INHIBIT,       0x80
-.equ    CPSR_FIQ_INHIBIT,       0x40
-.equ    CPSR_THUMB,             0x20
+#include "cpsr_def.S"
 
 .global _start
 .global kernel_init
@@ -30,7 +17,7 @@ _start:
 
 _reset_vector:                  .word _reset_handler
 _undefined_instruction_vector:  .word undefined_instruction_handler
-_software_interrupt_vector:     .word software_interrupt_handler
+_software_interrupt_vector:     .word _software_interrupt_handler
 _prefetch_abort_vector:         .word prefetch_abort_handler
 _data_abort_vector:             .word data_abort_handler
 _unused_vector:                 .word _reset_handler
@@ -54,7 +41,8 @@ _reset_handler:
   // set stack pointer to below text and data segment
   mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x8000
+  ldr sp, =0x6000
+  cpsie   i
 
 
   // r1 = Access Control Register
@@ -72,6 +60,7 @@ _reset_handler:
   // FPEXC = r0
   FMXR FPEXC, r0
 
+
   b kernel_init
 
 _enable_interrupts:
@@ -79,7 +68,6 @@ _enable_interrupts:
   mrs     r0, cpsr
   bic     r0, r0, #0x80
   msr     cpsr_c, r0
-  // this command flushes changes to processor
   cpsie   i
   mov     pc, lr
 
