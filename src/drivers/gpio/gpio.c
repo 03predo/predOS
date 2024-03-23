@@ -19,15 +19,24 @@ status_t gpio_func(gpio_pin_t pin, gpio_func_t func){
 
 status_t gpio_set(gpio_pin_t pin){
   uint8_t reg_indx = pin / SET_REG_WIDTH;
-  uint8_t mask = 0;
   GPIO->SET[reg_indx] |= (1U << pin); 
   return STATUS_OK;
 }
 
 status_t gpio_clear(gpio_pin_t pin){
   uint8_t reg_indx = pin / SET_REG_WIDTH;
-  uint8_t mask = 0;
   GPIO->CLR[reg_indx] |= (1U << pin); 
+  return STATUS_OK;
+}
+
+status_t gpio_pud(gpio_pin_t pin, gpio_pud_t mode){
+  uint8_t reg_indx = (pin * SEL_FIELD_WIDTH) / SEL_REG_WIDTH;
+  GPIO->PUD = mode;
+  for( volatile int i=0; i<150; i++ ) { }
+  GPIO->PUDCLK[reg_indx] |= ( 1 << pin );
+  for( volatile int i=0; i<150; i++ ) { }
+  GPIO->PUD = mode;
+  GPIO->PUDCLK[reg_indx] &= ~(1 << pin);
   return STATUS_OK;
 }
 

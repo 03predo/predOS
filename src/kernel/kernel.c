@@ -14,7 +14,7 @@ int kernel_main(){
   arm_timer_init(0x400);
   _enable_interrupts();
 
-  uart_init();
+  uart_init(115200);
   printf("hello from predOS\r\n");
   
   uint32_t counter = 0;

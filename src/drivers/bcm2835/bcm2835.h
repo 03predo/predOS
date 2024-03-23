@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 
+#define SYSFREQ (250000000UL)
 #define PERIPHERAL_BASE 0x20000000UL
 
 /*
@@ -66,11 +67,38 @@ typedef struct {
 
 extern aux_t* AUX;
 
-/* AUX reg field defines */
+/* AUX reg field offset */
 
-#define AUX_IRQ_SPI2      ( 0b1U << 2);
-#define AUX_IRQ_SPI1      ( 0b1U << 1);
-#define AUX_IRQ_MINIUART  ( 0b1U << 0);
+#define AUX_IRQ_SPI2      ( 0b1U << 2 );
+#define AUX_IRQ_SPI1      ( 0b1U << 1 );
+#define AUX_IRQ_MINI_UART  ( 0b1U << 0 );
+
+#define AUX_ENABLE_SPI2      ( 0b1U << 2 );
+#define AUX_ENABLE_SPI1      ( 0b1U << 1 );
+#define AUX_ENABLE_MINI_UART  ( 0b1U << 0 );
+
+#define AUX_MINI_UART_IRQ_ENABLE_RECEIVE  ( 0b1U << 1 )
+#define AUX_MINI_UART_IRQ_ENABLE_TRANSMIT ( 0b1U << 0 )
+
+
+#define AUX_MINI_UART_IRQ_STATUS_CLEAR_FIFO   ( 0b11U  << 1 )
+#define AUX_MINI_UART_IRQ_STATUS_IRQ_PENDING  ( 0b1U  << 0 )
+
+#define AUX_MINI_UART_LINE_CONTROL_DLAB       ( 0b1U  << 7 )
+#define AUX_MINI_UART_LINE_CONTROL_BREAK      ( 0b1U  << 6 )
+#define AUX_MINI_UART_LINE_CONTROL_8BIT       ( 0b11U << 0 )
+
+#define AUX_MINI_UART_MODEM_CONTROL_RTS ( 0b1U << 1 )
+
+#define AUX_MINI_UART_LINE_STATUS_TX_IDLE     ( 0b1U << 6 )
+#define AUX_MINI_UART_LINE_STATUS_TX_EMPTY    ( 0b1U << 5 )
+#define AUX_MINI_UART_LINE_STATUS_RX_OVERRUN  ( 0b1U << 5 )
+#define AUX_MINI_UART_LINE_STATUS_DATA_READY  ( 0b1U << 0 )
+
+#define AUX_MINI_UART_MODEM_STATUS_CTS ( 0b1U << 5 )
+
+#define AUX_MINI_UART_CONTROL_TX_ENABLE ( 0b1 << 1 )
+#define AUX_MINI_UART_CONTROL_RX_ENABLE ( 0b1 << 0 )
 
 /*
  * SYS TIMER
