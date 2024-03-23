@@ -51,20 +51,26 @@ typedef struct {
 
   volatile uint32_t reserved1[((0x40 - 0x04) / 4) - 1];
 
-  volatile uint32_t MU_IO;
-  volatile uint32_t MU_IER;
-  volatile uint32_t MU_IIR;
-  volatile uint32_t MU_LCR;
-  volatile uint32_t MU_MCR;
-  volatile uint32_t MU_LSR;
-  volatile uint32_t MU_MSR;
-  volatile uint32_t MU_SCRATCH;
-  volatile uint32_t MU_CNTL;
-  volatile uint32_t MU_STAT;
-  volatile uint32_t MU_BAUD;
+  volatile uint32_t MINI_UART_IO;
+  volatile uint32_t MINI_UART_IRQ_ENABLE;
+  volatile uint32_t MINI_UART_IRQ_STATUS;
+  volatile uint32_t MINI_UART_LINE_CONTROL;
+  volatile uint32_t MINI_UART_MODEM_CONTROL;
+  volatile uint32_t MINI_UART_LINE_STATUS;
+  volatile uint32_t MINI_UART_MODEM_STATUS;
+  volatile uint32_t MINI_UART_SCRATCH;
+  volatile uint32_t MINI_UART_CONTROL;
+  volatile uint32_t MINI_UART_STATUS;
+  volatile uint32_t MINI_UART_BAUDRATE;
 }aux_t;
 
 extern aux_t* AUX;
+
+/* AUX reg field defines */
+
+#define AUX_IRQ_SPI2      ( 0b1U << 2);
+#define AUX_IRQ_SPI1      ( 0b1U << 1);
+#define AUX_IRQ_MINIUART  ( 0b1U << 0);
 
 /*
  * SYS TIMER

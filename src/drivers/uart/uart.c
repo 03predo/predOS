@@ -11,18 +11,18 @@
 status_t uart_init(){
 
   AUX->ENABLES = 0b1; // enable uart 
-  AUX->MU_IER = 0;
-  AUX->MU_CNTL = 0;
+  AUX->MINI_UART_IRQ_ENABLE = 0;
+  AUX->MINI_UART_CONTROL = 0;
 
-  AUX->MU_LCR |= 0b11;
+  AUX->MINI_UART_LINE_CONTROL |= 0b11;
 
-  AUX->MU_MCR = 0;
+  AUX->MINI_UART_MODEM_CONTROL = 0;
 
-  AUX->MU_IER = 0;
+  AUX->MINI_UART_IRQ_ENABLE = 0;
 
-  AUX->MU_IIR = 0xC6;
+  AUX->MINI_UART_IRQ_STATUS = 0xC6;
 
-  AUX->MU_BAUD = (SYSFREQ / ( 8 * BAUDRATE )) - 1;
+  AUX->MINI_UART_BAUDRATE = (SYSFREQ / ( 8 * BAUDRATE )) - 1;
 
   gpio_func(UART_TX_PIN, GPIO_ALT_FUNC5);
   gpio_func(UART_RX_PIN, GPIO_ALT_FUNC5);
@@ -35,14 +35,14 @@ status_t uart_init(){
   for( volatile int i=0; i<150; i++ ) { }
   GPIO->PUDCLK[0] = 0;
 
-  AUX->MU_CNTL = 0b10;
+  AUX->MINI_UART_CONTROL = 0b10;
 
   return STATUS_OK;
 }
 
 status_t uart_send(char c){
-  while(!(AUX->MU_LSR & UART_MULSR_TX_EMPTY));
-  AUX->MU_IO = c;
+  while(!(AUX->MINI_UART_LINE_STATUS & UART_MULSR_TX_EMPTY));
+  AUX->MINI_UART_IO = c;
   return STATUS_OK;
 }
 
