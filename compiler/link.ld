@@ -29,15 +29,17 @@ SECTIONS {
   .kernel_data :
   {
     *(.rodata)
-    *(.data)
+    *(.data .data.* .gnu.linkonce.d.*)
   }
   
   .kernel_bss :
   {
-    _bss_start = .;
-    *(.bss)
+    __bss_start__ = .;
+    *(.dynbss)
+    *(.bss .bss.* .gnu.linkonce.b.*)
     *(COMMON)
-    _bss_end = .;
+    __bss_end__ = .;
 
   }
+  _end = .;
 }

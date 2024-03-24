@@ -1,0 +1,36 @@
+#include "bcm2835.h"
+#include "uart.h"
+
+#define UART_TX_PIN GPIO14
+#define UART_RX_PIN GPIO15
+
+status_t uart_init(uint32_t baudrate){
+
+  AUX->ENABLES |= AUX_IRQ_MINI_UART; // enable uart 
+
+  AUX->MINI_UART_IRQ_ENABLE = 0;
+  AUX->MINI_UART_CONTROL = 0;
+  AUX->MINI_UART_MODEM_CONTROL = 0;
+
+  AUX->MINI_UART_LINE_CONTROL = AUX_MINI_UART_LINE_CONTROL_8BIT;
+
+  AUX->MINI_UART_IRQ_STATUS = AUX_MINI_UART_IRQ_STATUS_CLEAR_FIFO;
+
+  AUX->MINI_UART_BAUDRATE = (SYSFREQ / ( 8 * baudrate )) - 1;
+
+  gpio_func(UART_TX_PIN, GPIO_ALT_FUNC5);
+  gpio_func(UART_RX_PIN, GPIO_ALT_FUNC5);
+
+  gpio_pud(UART_TX_PIN, PULL_UP_DOWN_DISABLE);
+
+  AUX->MINI_UART_CONTROL = AUX_MINI_UART_CONTROL_TX_ENABLE;
+
+  return STATUS_OK;
+}
+
+status_t uart_send(char c){
+  while(!(AUX->MINI_UART_LINE_STATUS & AUX_MINI_UART_LINE_STATUS_TX_EMPTY));
+  AUX->MINI_UART_IO = c;
+  return STATUS_OK;
+}
+

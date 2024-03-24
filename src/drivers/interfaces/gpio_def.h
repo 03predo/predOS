@@ -67,3 +67,9 @@ typedef enum {
   GPIO_ALT_FUNC4 = 0b011,
   GPIO_ALT_FUNC5 = 0b010
 }gpio_func_t;
+
+typedef enum {
+  PULL_UP_DOWN_DISABLE = 0b00,
+  PULL_DOWN_ENABLE = 0b01,
+  PULL_UP_ENABLE = 0b10
+}gpio_pud_t;

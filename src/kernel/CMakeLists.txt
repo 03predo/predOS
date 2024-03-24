@@ -1,5 +1,5 @@
-add_executable(kernel kernel.c kernel_init.c boot.S)
-target_link_libraries(kernel PRIVATE drivers)
+add_executable(kernel kernel.c kernel.S exception_handlers.c exception_handlers.S cstub.c boot.S)
+target_link_libraries(kernel PRIVATE drivers apps)
 add_custom_command(
     TARGET kernel POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} ${CMAKE_CURRENT_BINARY_DIR}/kernel${CMAKE_EXECUTABLE_SUFFIX} -O binary ${CMAKE_CURRENT_BINARY_DIR}/kernel.img
@@ -11,6 +11,6 @@ add_custom_target(make_image ALL DEPENDS make_image)
 add_custom_command(
   TARGET make_image POST_BUILD
   DEPENDS kernel
-  COMMAND ${CMAKE_SOURCE_DIR}/scripts/make_card.sh ${CMAKE_CURRENT_BINARY_DIR}/kernel.img ${RPIOS_IMG_DIR}
+  COMMAND ${CMAKE_SOURCE_DIR}/scripts/make_card.sh ${CMAKE_CURRENT_BINARY_DIR}/kernel.img ${IMG_DIR}
 )
 
