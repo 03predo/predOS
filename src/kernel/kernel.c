@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "kernel.h"
 #include "sys_log.h"
+#include "util.h"
 #include "gpio.h"
 #include "sys_timer.h"
 #include "arm_timer.h"
@@ -10,18 +11,11 @@
 
 #define LED_PIN 16
 
-#define GET_LR(lr) asm inline ("mov %0, lr" : "=r" (lr) : : )
-#define GET_SP(sp) asm inline ("mov %0, sp" : "=r" (sp) : : )
-
-
+extern int __bss_start__;
+extern int __bss_end__;
 extern void _enable_interrupts(void);
 
-static inline uint32_t get_link_register(void){
-  int lr = 0;
-  asm inline ("mov %0, lr" : "=r" (lr) : : );
-  return lr;
-
-}
+int kernel_init(void) __attribute__((naked)) __attribute__((section(".text.boot.kernel")));
 
 void setup_app_stack(){
   APP_STACK = (uint32_t*)0x8000;
@@ -44,28 +38,36 @@ void setup_app_stack(){
 
 }
 
+int kernel_start(){
 
-int kernel_main(){
   gpio_func(LED_PIN, GPIO_OUTPUT); 
   arm_timer_init(0x400);
   _enable_interrupts();
 
   uart_init(115200);
-  uint32_t sp;
-  GET_SP(sp);
+
+  SYS_LOG("starting predOS");
+
   setup_app_stack();
-  SYS_LOG("hello from predOS, sp=%#x", APP_STACK);
 
-  asm inline("SWI 1");
-  
-  uint32_t counter = 0;
-  while(1){
-    SYS_LOG("counter = %d", counter);
-    
-    sys_timer_sleep(1000000);  
+  asm inline("SVC 1");
 
-    counter++;
-  }
+  SYS_LOG("returned from SWI"); 
+
+  while(1);
 
   return 0;
 }
+
+int kernel_init(void)
+{
+  int *bss = &__bss_start__;
+  int* bss_end = &__bss_end__;
+
+  while(bss < bss_end) *bss++ = 0;
+
+  kernel_start();
+
+  while(1);
+}
+

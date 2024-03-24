@@ -1,9 +1,10 @@
 .section ".text.boot"
-#include "cpsr_def.S"
+
+#include "arm_defines.S"
 
 .global _start
-.global kernel_init
 .global _enable_interrupts
+.global kernel_init
 
 _start:
   ldr pc,  _reset_vector
@@ -37,12 +38,18 @@ _reset_handler:
   msr cpsr_c, r0
   ldr sp, =0x7000
 
-
   // set stack pointer to below text and data segment
   mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
   ldr sp, =0x6000
   cpsie   i
+
+  // set stack pointer to below text and data segment
+  mov r0, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+  msr cpsr_c, r0
+  ldr sp, =0x5000
+  cpsie   i
+
 
 
   // r1 = Access Control Register
@@ -59,6 +66,7 @@ _reset_handler:
   MOV r0,#0x40000000
   // FPEXC = r0
   FMXR FPEXC, r0
+
 
 
   b kernel_init
