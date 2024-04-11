@@ -1,8 +1,9 @@
 #include <stdint.h>
 #include <stdio.h>
+
 #include "kernel.h"
 #include "sys_log.h"
-#include "util.h"
+#include "debug_interface.h"
 #include "gpio.h"
 #include "sys_timer.h"
 #include "arm_timer.h"
@@ -47,6 +48,10 @@ int kernel_start(){
   uart_init(115200);
 
   SYS_LOG("starting predOS");
+
+  BKPT(0xbeef);
+
+  SYS_LOG("returned from bkpt");
 
   setup_app_stack();
 
