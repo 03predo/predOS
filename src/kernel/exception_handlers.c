@@ -10,9 +10,10 @@
 
 extern void _kernel_context_switch(uint32_t prev_stack_pointer);
 
-void __attribute__((interrupt("UNDEF"))) undefined_instruction_handler(void){
-    SYS_LOG("UNDEFINED INSTRUCTION");
-    while(1);
+void __attribute__((interrupt("UNDEF"))) undefined_instruction_handler(uint32_t spsr, uint32_t lr){
+  SYS_LOG("UNDEFINED INSTRUCTION");
+  SYS_LOG("spsr: %#x, lr: %#x\n", spsr, lr); 
+  while(1);
 }
 
 void software_interrupt_handler(uint32_t sp){

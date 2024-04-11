@@ -2,7 +2,24 @@
 
 #include "arm_defines.S"
 
+.global _undefined_instruction_handler
+.global _prefetch_abort_handler
 .global _software_interrupt_handler
+
+_undefined_instruction_handler:
+  mrs r0, spsr
+  mov r1, lr
+  b undefined_instruction_handler
+
+_prefetch_abort_handler:
+  // load IFSR into r0
+  mrc p15, #0, r0, c5, c0, #1
+  // the status is in the bottom 4 bits
+  and r0, r0, #0b1111 
+  cmp r0, #(IFSR_DEBUG_EVENT)
+  bne prefetch_abort_handler
+  moveq r0, lr
+  beq debug_event_handler
 
 _software_interrupt_handler:
   // disable interrupts
