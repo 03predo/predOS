@@ -1,4 +1,4 @@
-add_executable(kernel kernel.c kernel.S exception_handlers.c exception_handlers.S cstub.c boot.S)
+add_executable(kernel kernel.c kernel.S exception_handlers.c exception_handlers.S cstub.c boot.S debug_interface.c)
 target_link_libraries(kernel PRIVATE drivers apps)
 add_custom_command(
     TARGET kernel POST_BUILD
