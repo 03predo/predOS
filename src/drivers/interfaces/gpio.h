@@ -8,3 +8,5 @@ status_t gpio_set(gpio_pin_t pin);
 status_t gpio_clear(gpio_pin_t pin);
 status_t gpio_pud(gpio_pin_t pin, gpio_pud_t mode);
 
+status_t gpio_pulse(gpio_pin_t pin, uint32_t num_pulses);
+

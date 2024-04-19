@@ -35,6 +35,9 @@ void __attribute__((interrupt("ABORT"))) data_abort_handler(void){
 }
 
 void __attribute__((interrupt("IRQ"))) interrupt_handler(void){
+  if(!(AUX->MINI_UART_IRQ_STATUS & 0b001)){
+    uart_irq_handler();
+  }
 
   static int lit = 0;
   if(ARM_TIMER->MASKED_IRQ){

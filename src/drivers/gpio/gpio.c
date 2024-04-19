@@ -1,5 +1,6 @@
 #include "bcm2835.h"
 #include "gpio.h"
+#include "sys_timer.h"
 
 #define SEL_FIELD_WIDTH 3
 #define SEL_REG_WIDTH 30
@@ -40,3 +41,12 @@ status_t gpio_pud(gpio_pin_t pin, gpio_pud_t mode){
   return STATUS_OK;
 }
 
+status_t gpio_pulse(gpio_pin_t pin, uint32_t num_pulses){
+  for(uint32_t i = 0; i < num_pulses; ++i){
+    gpio_clear(pin);
+    sys_timer_sleep(100000);
+    gpio_set(pin);
+    sys_timer_sleep(100000);
+  }
+  return STATUS_OK;
+}

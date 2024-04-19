@@ -1,1 +1,1 @@
-plink.exe -serial COM6 -sercfg 115200
+plink.exe -serial COM6 -sercfg 5000000

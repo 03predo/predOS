@@ -42,24 +42,15 @@ void setup_app_stack(){
 int kernel_start(){
 
   gpio_func(LED_PIN, GPIO_OUTPUT); 
-  arm_timer_init(0x400);
+
+  uart_init(5000000);
   _enable_interrupts();
 
-  uart_init(115200);
-
   SYS_LOG("starting predOS");
-
-  BKPT(0xbeef);
-
-  SYS_LOG("returned from bkpt");
-
-  setup_app_stack();
-
-  asm inline("SVC 1");
-
-  SYS_LOG("returned from SWI"); 
-
-  while(1);
+  while(1){
+    gpio_pulse(LED_PIN, 5);
+    sys_timer_sleep(2000000);
+  }
 
   return 0;
 }
