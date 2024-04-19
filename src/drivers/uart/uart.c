@@ -2,6 +2,7 @@
 #include "bcm2835.h"
 #include "uart.h"
 #include "sys_log.h"
+#include "power_management.h"
 
 
 #define UART_TX_PIN GPIO14
@@ -61,7 +62,8 @@ status_t uart_init(uint32_t baudrate){
 
 status_t uart_handle_command(char* cmd, uint32_t len){
   if(len == 1 && cmd[0] == 'R'){
-    SYS_LOG("reset received");
+    SYS_LOG("reseting...");
+    power_management_reset();
   }else if(len == 1 && cmd[0] == 'L'){
     SYS_LOG("load received");
   }else{

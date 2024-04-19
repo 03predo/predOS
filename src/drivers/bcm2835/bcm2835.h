@@ -158,3 +158,24 @@ typedef struct {
 } irq_controller_t;
 
 extern irq_controller_t* IRQ_CONTROLLER;
+
+/*
+ * POWER MANAGEMENT
+ * 
+ * No documentation online about these registers, only information is form these sites
+ * https://ultibo.org/wiki/Unit_BCM2835
+ * https://github.com/torvalds/linux/blob/master/drivers/watchdog/bcm2835_wdt.c#L89
+ * 
+ */
+
+#define PM_OFFSET     0x100000UL
+#define PM_RSTC_OFFSET 0x1cUL
+#define PM_WDOG_OFFSET 0x24UL
+
+#define PM_PASSWORD 0x5a000000UL
+#define PM_FULL_RESET 0x00000020UL
+#define PM_WRCFG_CLR 0xffffffcfUL
+
+extern uint32_t* RESET_CONTROLLER;
+extern uint32_t* WATCHDOG;
+
