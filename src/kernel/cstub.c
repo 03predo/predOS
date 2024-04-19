@@ -50,12 +50,10 @@ caddr_t _sbrk(int incr){
 }
 
 void outbyte(char b){
-  uart_send(b);
 }
 
 int _write(int file, char *ptr, int len){
-  int todo;
-  for( todo = 0; todo < len; todo++) outbyte(*ptr++);
+  uart_print(ptr, len);
   return len;
 }
 
