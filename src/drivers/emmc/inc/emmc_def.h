@@ -8,8 +8,13 @@ typedef enum {
   SEND_RELATIVE_ADDR = 3,
   SET_DSR = 4,
   SELECT_DESELECT_CARD = 7,
-  SEND_IF_COND = 8
+  SEND_IF_COND = 8,
+  APP_CMD = 55
 } emmc_command_index_t;
+
+typedef enum {
+  SD_SEND_OP_COND = 41,
+} emmc_app_command_t;
 
 typedef enum {
   RESPONSE_NONE = 0,
