@@ -3,149 +3,176 @@
 #include "emmc.h"
 #include "sys_log.h"
 #include "gpio.h"
+#include "emmc_def.h"
 
-typedef union {
-  struct {
-    uint32_t reserved0 : 1;
-    uint32_t data_width_4bit_enable : 1;
-    uint32_t reserved1 : 2;
-    uint32_t data_width_8bit_enable : 1;
-    uint32_t reserved2 : 10;
-    uint32_t gap_stop : 1;
-    uint32_t gap_restart : 1;
-    uint32_t read_wait_enable : 1;
-    uint32_t gap_interrupt_enable : 1;
-    uint32_t spi_mode : 1;
-    uint32_t boot_mode_access : 1;
-    uint32_t alternate_boot_mode_access : 1;
-    uint32_t reserved3 : 9;
-  } fields;
-  uint32_t raw;
-}emmc_control0_t;
+status_t emmc_command_response_type(emmc_command_index_t command_index, emmc_response_type_t* response_type){
+  switch(command_index){
+    case GO_IDLE_STATE:
+      *response_type = RESPONSE_NONE;      
+      break;
+    case ALL_SEND_CID:
+      *response_type = RESPONSE_136_BIT;
+      break;
+    case SEND_RELATIVE_ADDR:
+      *response_type = RESPONSE_48_BIT;
+      break;
+    case SET_DSR:
+      *response_type = RESPONSE_NONE;
+      break;
+    case SELECT_DESELECT_CARD:
+      *response_type = RESPONSE_48_BIT_BUSY;
+      break;
+    case SEND_IF_COND:
+      *response_type = RESPONSE_48_BIT;
+      break;
+    default:
+      *response_type = RESPONSE_NONE;
+      return STATUS_ERR;
+  }
+  return STATUS_OK;
+}
 
-typedef union {
-  struct {
-    uint32_t clk_internal_clock_enable : 1;
-    uint32_t clk_stable : 1;
-    uint32_t clk_enable : 1;
-    uint32_t reserved0 : 2;
-    uint32_t clk_generation_select : 1;
-    uint32_t clk_freq_msb : 2;
-    uint32_t clk_freq_lsb : 8;
-    uint32_t data_timeout_unit_exponent : 4;
-    uint32_t reserved1 : 4;
-    uint32_t reset_host_circuit : 1;
-    uint32_t reset_command_circuit : 1;
-    uint32_t reset_data_circuit : 1;
-    uint32_t reserved2 : 4;
-  } fields;
-  uint32_t raw;
-}emmc_control1_t;
+status_t emmc_command_data_direction(emmc_command_index_t command_index, emmc_data_direction_t* data_dir){
+  switch(command_index){
+    case GO_IDLE_STATE:
+      *data_dir = HOST_TO_CARD;
+      break;
+    case ALL_SEND_CID:
+      *data_dir = HOST_TO_CARD;
+      break;
+    case SEND_RELATIVE_ADDR:
+      *data_dir = HOST_TO_CARD;
+      break;
+    case SET_DSR:
+      *data_dir = HOST_TO_CARD;
+      break;
+    case SELECT_DESELECT_CARD:
+      *data_dir = HOST_TO_CARD;
+      break;
+    case SEND_IF_COND:
+      *data_dir = HOST_TO_CARD;
+      break;
+    default:
+      *data_dir = HOST_TO_CARD;
+      return STATUS_ERR;
+  }
+  return STATUS_OK;
+}
 
-typedef union {
-  struct {  
-    uint32_t auto_command_not_executed : 1;
-    uint32_t auto_command_timeout : 1;
-    uint32_t auto_command_crc_error : 1;
-    uint32_t auto_command_end_bit_error : 1;
-    uint32_t auto_command_index_error : 1;
-    uint32_t reserved0 : 2;
-    uint32_t auto_command12_error : 1;
-    uint32_t reserved1 : 8;
-    uint32_t uhs_mode : 3;
-    uint32_t reserved2 : 2;
-    uint32_t tune_on : 1;
-    uint32_t tuned : 1;
-    uint32_t reserved3 : 8;
-  } fields;
-  uint32_t raw;
-}emmc_control2_t;
-
-typedef union {
-  struct {
-    uint16_t command_response_type : 2;
-    uint16_t reserved0 : 1;
-    uint16_t response_crc_check_enable : 1;
-    uint16_t response_index_check_enable : 1;
-    uint16_t command_is_data_transfer : 1;
-    uint16_t command_type : 2;
-    uint16_t command_index : 6;
-    uint16_t reserved1 : 2;
-  } fields;
-  uint16_t raw;
-}emmc_command_t;
-
-typedef union {
-  struct {
-    uint16_t reserved0 : 1;
-    uint16_t block_count_enable : 1;
-    uint16_t auto_command_enable : 2;
-    uint16_t data_transfer_direction : 1;
-    uint16_t multi_block_transfer : 1;
-    uint16_t reserved1 : 10;
-  } fields;
-  uint16_t raw;
-}emmc_transfer_mode_t;
-
-status_t emmc_init(void){
-  SYS_LOG("reseting host circuit");
-  uint32_t c1 = EMMC->CONTROL1;
+status_t emmc_reset_host_circuit(){
+  emmc_control1_t c1;
+  c1.raw = EMMC->CONTROL1;
   // reset host circuit
-  c1 |= (1 << 24);
+  c1.fields.reset_host_circuit = 1;
   // disable clock
-  c1 &= ~(1 << 2);
-  c1 &= ~(1 << 0);
-  EMMC->CONTROL1 = c1;
+  c1.fields.clk_enable = 0;
+  c1.fields.clk_internal_clock_enable = 0;
+  EMMC->CONTROL1 = c1.raw;
   sys_timer_sleep(1000000);
-  if((EMMC->CONTROL1 & (1 << 24)) != 0){
+  c1.raw = EMMC->CONTROL1;
+  if(c1.fields.reset_host_circuit != 0){
     SYS_LOG("failed to reset properly"); 
     return STATUS_ERR;
   }
   SYS_LOG("reset successful");
+  return STATUS_OK;
+}
 
-  if((EMMC->STATUS & (1 << 16)) == 0){
-    SYS_LOG("no card insterted");
-  }
-
-  SYS_LOG("status: %#x", EMMC->STATUS);
-
+status_t emmc_enable_clock(){
   EMMC->CONTROL2 = 0;
 
-  c1 = EMMC->CONTROL1;
-  c1 |= 1; // enable internal clock
-  c1 |= (0x80 << 8); // set clock divder to 1/(2*128) to get close to 400kHz id frequency
-  c1 |= (7 << 16); // timeout unit exponent
-  EMMC->CONTROL1 = c1;
+  emmc_control1_t c1;
+  c1.raw = EMMC->CONTROL1;
+  c1.fields.clk_internal_clock_enable = 1; // enable internal clock
+  c1.fields.clk_freq_lsb = 0x80; // set clock divder to 1/(2*128) to get close to 400kHz id frequency
+  c1.fields.data_timeout_unit_exponent = 7; // timeout unit exponent
+  EMMC->CONTROL1 = c1.raw;
 
   sys_timer_sleep(1000000);
-  if((EMMC->CONTROL1 & 0x2) == 0){
+  c1.raw = EMMC->CONTROL1;
+  if(c1.fields.clk_stable == 0){
     SYS_LOG("clock failed to stabilize");
+    return STATUS_ERR;
   }
   SYS_LOG("clock stabilized");
 
-  EMMC->CONTROL1 |= 0x4; // enable SD clock
+  c1.fields.clk_enable = 1; // enable SD clock
+  EMMC->CONTROL1 = c1.raw;
 
   sys_timer_sleep(2000);
+  return STATUS_OK;
+}
+
+
+status_t emmc_send_command(emmc_command_index_t command_index, emmc_argument_t argument, emmc_response_t* response){
+  emmc_response_type_t response_type;
+  if(emmc_command_response_type(command_index, &response_type) != STATUS_OK){
+    SYS_LOG("failed to get response type");
+    return STATUS_ERR;
+  }
+
+  emmc_data_direction_t data_dir;
+  if(emmc_command_data_direction(command_index, &data_dir) != STATUS_OK){
+    SYS_LOG("failed to get data direction");
+    return STATUS_ERR;
+  }
+
+  emmc_command_t cmd = {0};
+  cmd.fields.command_index = command_index;
+  cmd.fields.command_response_type = response_type;
+
+  emmc_transfer_mode_t tm = {0};
+  tm.fields.data_transfer_direction = data_dir;
+
+  EMMC->ARGUMENT1 = argument.argument1;
+  EMMC->ARGUMENT2 = argument.argument2;
+
+  EMMC->INTERRUPT |= 0xffffffff;
+  sys_timer_sleep(2000);
+  EMMC->COMMAND_TRANSFER_MODE = (cmd.raw << 16) + tm.raw;
+
+  while(EMMC->INTERRUPT == 0);
+
+  // this needs to be improved to account for diff commands (reads/writes)
+  if(!(EMMC->INTERRUPT & 0x1)){
+    SYS_LOG("int: %#8x", EMMC->INTERRUPT);
+    return STATUS_ERR;
+  }
+
+  response->resp0 = EMMC->RESPONSE0;
+  response->resp1 = EMMC->RESPONSE1;
+  response->resp2 = EMMC->RESPONSE2;
+  response->resp3 = EMMC->RESPONSE3;
+  return STATUS_OK;
+}
+
+status_t emmc_init(void){
+  if(emmc_reset_host_circuit() != STATUS_OK) return STATUS_ERR;
+
+  emmc_status_t status;
+  status.raw = EMMC->STATUS;
+  if(status.fields.card_inserted == 0){
+    SYS_LOG("no card insterted");
+  }
+
+  if(emmc_enable_clock() != STATUS_OK) return STATUS_ERR; 
 
   EMMC->INTERRUPT_EN = 0;
   EMMC->INTERRUPT |= 0xffffffff;
   EMMC->INTERRUPT_MASK |= 0xffffffff;
-
-  sys_timer_sleep(2000);
-
-  EMMC->ARGUMENT1 = 0;
   EMMC->BLOCK_SIZE_COUNT = 0x200;
-  emmc_command_t cmd = {0};
-  cmd.fields.command_index = 0;
-  cmd.fields.command_response_type = 0b00;
 
-  emmc_transfer_mode_t tm = {0};
-  tm.fields.data_transfer_direction = 0;
-  EMMC->INTERRUPT |= 0xffffffff;
   sys_timer_sleep(2000);
-  SYS_LOG("int: %#x, resp: %#x, status: %#x, cmdtm: %#x", EMMC->INTERRUPT, EMMC->RESPONSE0, EMMC->STATUS, (cmd.raw << 16) + tm.raw);
-  EMMC->COMMAND_TRANSFER_MODE = (cmd.raw << 16) + tm.raw;
-  sys_timer_sleep(1000000);
+
+  emmc_command_t cmd = {0};
+  emmc_transfer_mode_t tm = {0};
+
+  emmc_response_t resp;
+  emmc_argument_t arg;
+  arg.argument1 = 0;
+  arg.argument2 = 0;
+  if(emmc_send_command(GO_IDLE_STATE, arg, &resp) != STATUS_OK) return STATUS_ERR;
+
   SYS_LOG("int: %#x, resp: %#x, status: %#x", EMMC->INTERRUPT, EMMC->RESPONSE0, EMMC->STATUS);
 
   EMMC->INTERRUPT |= 0xffffffff;
