@@ -6,9 +6,10 @@
 #include "debug_interface.h"
 #include "gpio.h"
 #include "sys_timer.h"
-#include "arm_timer.h"
 #include "uart.h"
 #include "example/example.h"
+#include "bcm2835.h"
+#include "emmc.h"
 
 #define LED_PIN 16
 
@@ -47,6 +48,8 @@ int kernel_start(){
   _enable_interrupts();
 
   SYS_LOG("starting predOS");
+  SYS_LOG("CONTROL0: %#x, CONTROL1: %#x, CONTROL2: %#x, STATUS: %#x", EMMC->CONTROL0, EMMC->CONTROL1, EMMC->CONTROL2, EMMC->STATUS);
+  emmc_init();
   while(1){
     gpio_pulse(LED_PIN, 5);
     sys_timer_sleep(2000000);

@@ -37,6 +37,8 @@ void __attribute__((interrupt("ABORT"))) data_abort_handler(void){
 void __attribute__((interrupt("IRQ"))) interrupt_handler(void){
   if(!(AUX->MINI_UART_IRQ_STATUS & 0b001)){
     uart_irq_handler();
+  }else{
+    gpio_pulse(LED_PIN, 2);
   }
 
   static int lit = 0;

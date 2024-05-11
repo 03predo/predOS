@@ -179,3 +179,43 @@ extern irq_controller_t* IRQ_CONTROLLER;
 extern uint32_t* RESET_CONTROLLER;
 extern uint32_t* WATCHDOG;
 
+/*
+ * External Mass Media Controller
+ */
+
+#define EMMC_OFFSET 0x300000
+
+typedef struct {
+  uint32_t ARGUMENT2;
+  uint32_t BLOCK_SIZE_COUNT;
+  uint32_t ARGUMENT1;
+  uint32_t COMMAND_TRANSFER_MODE;
+  uint32_t RESPONSE0;
+  uint32_t RESPONSE1;
+  uint32_t RESPONSE2;
+  uint32_t RESPONSE3;
+  uint32_t DATA;
+  uint32_t STATUS;
+  uint32_t CONTROL0;
+  uint32_t CONTROL1;
+  uint32_t INTERRUPT;
+  uint32_t INTERRUPT_MASK;
+  uint32_t INTERRUPT_EN;
+  uint32_t CONTROL2;
+  uint32_t CAPABILITIES0;
+  uint32_t CAPABILITIES1;
+  // need to properly calc offset
+  //uint32_t FORCE_INTERRUPT;
+  //uint32_t BOOT_TIMEOUT;
+  //uint32_t DEBUG_CONFIG;
+  //uint32_t EXTENSION_FIFO_CONFIG;
+  //uint32_t EXTENSION_FIFO_ENABLE;
+  //uint32_t TUNE_STEP;
+  //uint32_t TUNE_STEPS_SDR;
+  //uint32_t TUNE_STEPS_DDR;
+  //uint32_t SPI_INTERRUPT_SELECT;
+  //uint32_t SLOT_INTERRUPT_STATUS_VERSION;
+}emmc_t;
+
+extern emmc_t* EMMC;
+
