@@ -1,89 +1,63 @@
 # Embedded Multi Media Controller
 
 ## EMMC Initialization Procedure
-We need to configure the emmc via the control registers
+### 1. Reset EMMC
+Reset the complete host circuit and disable the SD clock and the EMMC internal clock by setting the corresponding bits in the CONTROL1 register of the EMMC. Wait one second before checking that reset is successful.
 
-## Control0
-- Fields:
-    - ALT_BOOT_EN: 0 -> disabled
-    - BOOT_EN: 0 -> stop boot mode access
-    - SPI_MODE: 0 -> normal mode
-    - GAP_IEN: 0 -> disabled
-    - READWAIT_EN: 0 -> disabled
-    - GAP_RESTART: 0 -> ignore
-    - GAP_STOP: 0 -> ignore
-    - HCTL_8BIT: 0 -> disabled
-    - HCTL_HS_EN: 0 -> disabled
-    - HCTL_DWIDTH: 1 -> 4-bit mode (micro sd has 4 data lines)
+> **Note:** this process is not documented anywhere, but taken from the rpi-boot EMMC driver implementation
 
-## Control1
-- Fields:
-    - SRST_DATA: 0 -> disabled
-    - SRST_CMD: 0 -> disabled
-    - SRST_HC: 0 -> disabled
-    - DATA_TOUNIT: 1111b -> disabled
-    - CLK_FREQ8: 0 -> base clock
-    - CLK_FREQ_MS2: 0 -> base clock
-    - CLK_GENSEL: 0 -> divided
-    - CLK_EN: 0 -> enabled
-    - CLK_INTLEN: 0 -> disabled
+### 2. Unmask Interrupts
+Unmask interrupts so the corresponding bits are set in the INTERRUPT register of the EMMC when the events occur.
 
-## Control2
-- Fields:
-    - TUNED: 0 -> no
-    - TUNEON: 0 -> no
-    - UHS_MODE: 011b -> SDR104
+**TODO:** update this section to detail which interrupts we enable (ie. let the ISR handle)
+### 3. Validate Card Inserted
+Validate that a card is inserted by checking the corresponding bit in the STATUS register of the EMMC. 
 
-## Read Procedure
-Set the block size, block count, arugment, transfer mode and command registers, a write to the command sends the command so must be performed last.
+> **Note:** this card inserted bit is marked as reserved in the BCM2835 peripherals datasheet but its position is documented in the SD Host Controller Spec 2.2.9
 
-## Block Size
-- we will use the max block size 512
+### 4. Enable Clock
+The clock supply sequence is documented in the SD Host Controller Spec 3.2.1. It outlines the following steps:
+1. **Calculate a Divisor:** The divisor will determine the frequency of the SD clock. We assume the base SD clock frequency is 100MHz. Our target frequency is 400kHz which is the identification frequency (Physical Layer Spec 4.2.1), we need to operate at this frequency for some of the following steps in the initialization process, thus our divider is 250(or 0xFA in hex).
+2. **Set Internal Clock Enable and Clock Divisor**: Write to both of these fields in the CONTROL1 register of the EMMC to start the internal clock.
+3. **Check Internal Clock Stable**: Check the clock stable field in the CONTROL1 register until it indicates the internal clock is stable.
+4. **Set SD Clock Enable**: Setting this field in CONTROL1 will supply the SD Clock to the card.
 
-## Argument
-- For a read the argument register contains the address on the chip, according to the physical layer spec the sdxc cards use 512 block unit addresses, so addr 0x0 corresponds to the first 512 bytes on the sd card. 
+> **Note:** The assumption that the base SD clock frequency is 100MHz comes from the rpi-boot implementation of the EMMC driver. Usually you would be able to check the Capabilities register for the base clock value but the BCM2835 does not include this register in the datasheet
+
+### 5. Card Reset
+The card reset step is documented in the Physical Layer Spec 4.2.1. To reset all cards we send the GO_IDLE_STATE command (CMD0). This tells each card to go into the idle state, in the idle state each card has a default driver strength, and 400kHz clock frequency.
+
+### 6. Operating Condition Validation
+This step is documented in the Physical Layer Spec 4.2.2. This step ensures that the card is compatible with the Host Controller. The first thing we do in this step is send the SEND_IF_COND command (CMD8), in the argument of this command we send the current supplied voltage and a check pattern. On response to this command we check the check pattern in the response to ensure it is the same as the one we sent. Receipt of this command lets the card know that we support a certain version of the physical layer spec and it can enable any relevant features accordingly.
+
+The next step is to send the SD_SEND_OP_COND command (ACMD41), in the argument of this command we send the desired operating voltage range to the card. If the card is compatible with this range it will respond with its OCR (operating condition register). The card will then begin its power up process, the status of the card power up is indicated in the OCR so we continuously poll the card by sending SD_SEND_OP_COND until power up is complete.
+
+### 7. Card Identification
+This step is documented in the Physical Layer Spec 4.2.3. This step allows us to identify the card and assigns the card it's relative card address which is used in subsequent commands. First we send the ALL_SEND_CID command (CMD2), this will return the Card Identification Register(CID), which contains information about the card (manufacturer, product name, serial number).
+
+After this command we send the SEND_RELATIVE_ADDR command (CMD3) which will return the cards relative card address (RCA), the RCA is useful when you can have multiple cards accessed by the same host controller. The SEND_RELATIVE_ADDR command also transitions the card into the standby state which means it is ready for data transfers, this means we can set the clock frequency up to 25MHz which is the max frequency for microSDXC cards(ie. the card im using).
 
 
 
-## Registers
-The EMMC registers loosely map to register in the SD Host Controller spec
+## EMMC Data Transfer Procedure
 
-### Block Size Register
-- Set the size of each block for a given transfer
 
-### Block Count Register
-- Set the number of blocks for a given transfer
+## References
+BCM2835 Peripheral Sheet
+```
+https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
+```
 
-### Argument Register
-- Specified as bit39-8 0f Command-Format in the Physical Layer Spec(need to see if this is important)
+Download the simplified SD specs
+- Part1_Physical_Layer_Simplified_Specification_Ver3.01.pdf 
+- PartA2_SD Host_Controller_Simplified_Specification_Ver3.00.pdf 
+From this website
+```
+https://www.sdcard.org/downloads/pls/archives/
+```
 
-### Transfer Mode Register
-- Control operation of data transfers. Should be set before issuing a command. 
-- Fields:
-    - Multi/Single Block Select: bit is set when issuing multiple-block transfer commands
-    - Data Transfer Direction Select: 1 indicates read(Card to Host), 0 indicates write(Host to Card)
-    - Auto CMD Enable: determines use of auto command functions
-        - 00b -> Auto Command Disabled
-        - 01b -> Auto CMD12 Enable: Host Controller issues CMD12 automatically when last block transfer is complete
-        - 10b -> Audo CMD23 Enable: Host Controller issues CMD23 automatically before issuing a command in the command register
-    - Block Counter Enable: enables the block count register
-    - DMA Enable: 1 indicates DMA Data transfer, 0 indicates Non DMA data transfer
-
-### Command Register
-- Host Driver must check Command Inhibit(DATA) and Commmand Inhibit(CMD) bit in the Present State register before writing to this register. Writing to the upper byte of this register triggers SD command generation. 
-- Fields:
-    - Command Index: set the command number(CMD0-63, ACMD0-63) that is specified in bits 45-40 of the Command-Format in the physical layer spec.
-    - Command Type: set based on whether command is Suspend, Resume, Abort, or regular
-    - Data Present Select: 1 indicates data is present and will be transferred using the data line, 0 otherwise
-    - Command Index Check Enable: If 1 Host controller checks to see if the response has the same value as the command index
-    - Command CRC Check Enable: If 1 Host Controller checks CRC field in the response
-    - Response Type Select: 
-        - 00b -> No Response
-        - 01b -> Response Length 136
-        - 10b -> Response length 48
-        - 11b Response Length 48 check busy after response
-
-### Response Register
-- Provides command response based on mapping in spec
-
+Here is another implementation of the emmc driver
+```
+https://github.com/jncronin/rpi-boot/blob/master/emmc.c
+```
 

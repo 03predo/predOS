@@ -5,85 +5,81 @@
 #include "gpio.h"
 #include "emmc_def.h"
 
-status_t emmc_command_response_type(emmc_command_index_t command_index, emmc_response_type_t* response_type){
+#define BASE_CLOCK_FREQ 100000000 // assume base clock is 100MHz
+#define IDENTIFICATION_MODE_CLOCK_FREQ 400000 // 400kHz
+#define DATA_TRANSFER_MODE_CLOCK_FREQ 25000000 // 25MHz
+
+status_t emmc_command_fields(emmc_command_index_t command_index, emmc_command_t* command,
+                             emmc_transfer_mode_t* transfer_mode){
   switch(command_index){
     case GO_IDLE_STATE:
-      *response_type = RESPONSE_NONE;      
+      command->fields.command_index = GO_IDLE_STATE;
+      command->fields.command_response_type = RESPONSE_NONE;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
     case ALL_SEND_CID:
-      *response_type = RESPONSE_136_BIT;
+      command->fields.command_index = ALL_SEND_CID;
+      command->fields.command_response_type = RESPONSE_136_BIT;
+      command->fields.response_crc_check_enable = 1;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
     case SEND_RELATIVE_ADDR:
-      *response_type = RESPONSE_48_BIT;
+      command->fields.command_index = SEND_RELATIVE_ADDR;
+      command->fields.command_response_type = RESPONSE_48_BIT;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
     case SET_DSR:
-      *response_type = RESPONSE_NONE;
+      command->fields.command_index = SET_DSR;
+      command->fields.command_response_type = RESPONSE_NONE;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
     case SELECT_DESELECT_CARD:
-      *response_type = RESPONSE_48_BIT_BUSY;
+      command->fields.command_index = SELECT_DESELECT_CARD;
+      command->fields.command_response_type = RESPONSE_48_BIT_BUSY;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
     case SEND_IF_COND:
-      *response_type = RESPONSE_48_BIT;
+      command->fields.command_index = SEND_IF_COND;
+      command->fields.command_response_type = RESPONSE_48_BIT;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
+      break;
+    case READ_SINGLE_BLOCK:
+      command->fields.command_index = READ_SINGLE_BLOCK;
+      command->fields.command_response_type = RESPONSE_48_BIT;
+      command->fields.command_is_data_transfer = 1;
+      transfer_mode->fields.data_transfer_direction = CARD_TO_HOST;
       break;
     case APP_CMD:
-      *response_type = RESPONSE_48_BIT;
+      command->fields.command_index = APP_CMD;
+      command->fields.command_response_type = RESPONSE_48_BIT;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
+      break;
+    case SEND_CSD:
+      command->fields.command_index = SEND_CSD;
+      command->fields.command_response_type = RESPONSE_136_BIT;
+      command->fields.response_crc_check_enable = 1;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
     default:
-      *response_type = RESPONSE_NONE;
+      command->raw = 0;
+      transfer_mode->raw = 0;
       return STATUS_ERR;
   }
   return STATUS_OK;
-}
-
-status_t emmc_command_data_direction(emmc_command_index_t command_index, emmc_data_direction_t* data_dir){
-  switch(command_index){
-    case GO_IDLE_STATE:
-      *data_dir = HOST_TO_CARD;
-      break;
-    case ALL_SEND_CID:
-      *data_dir = HOST_TO_CARD;
-      break;
-    case SEND_RELATIVE_ADDR:
-      *data_dir = HOST_TO_CARD;
-      break;
-    case SET_DSR:
-      *data_dir = HOST_TO_CARD;
-      break;
-    case SELECT_DESELECT_CARD:
-      *data_dir = HOST_TO_CARD;
-      break;
-    case SEND_IF_COND:
-      *data_dir = HOST_TO_CARD;
-      break;
-    case APP_CMD:
-      *data_dir = HOST_TO_CARD;
-      break;
-    default:
-      *data_dir = HOST_TO_CARD;
-      return STATUS_ERR;
-  }
   return STATUS_OK;
 }
 
-status_t emmc_app_command_response_type(emmc_app_command_t app_command, emmc_response_type_t* response_type){
+status_t emmc_app_command_fields(emmc_app_command_t app_command, emmc_command_t* command,
+                             emmc_transfer_mode_t* transfer_mode){
   switch(app_command){
-    case SD_SEND_OP_COND:
-      *response_type = RESPONSE_48_BIT;
+    case SD_SEND_OP_COND: 
+      command->fields.command_index = SD_SEND_OP_COND;
+      command->fields.command_response_type = RESPONSE_48_BIT;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
     default:
-      *response_type = RESPONSE_NONE;
-      return STATUS_ERR;
-  }
-  return STATUS_OK;
-}
-
-status_t emmc_app_command_data_direction(emmc_app_command_t app_command, emmc_data_direction_t* data_dir){
-  switch(app_command){
-    case SD_SEND_OP_COND:
-      *data_dir = HOST_TO_CARD;
-      break;
-    default:
-      *data_dir = HOST_TO_CARD;
+      command->raw = 0;
+      transfer_mode->raw = 0;
       return STATUS_ERR;
   }
   return STATUS_OK;
@@ -92,33 +88,49 @@ status_t emmc_app_command_data_direction(emmc_app_command_t app_command, emmc_da
 status_t emmc_reset_host_circuit(){
   emmc_control1_t c1;
   c1.raw = EMMC->CONTROL1;
-  // reset host circuit
+
+  // reset host circuit and disable clock
   c1.fields.reset_host_circuit = 1;
-  // disable clock
   c1.fields.clk_enable = 0;
   c1.fields.clk_internal_clock_enable = 0;
   EMMC->CONTROL1 = c1.raw;
+
   sys_timer_sleep(1000000);
+
+  //check to make sure reset occured
   c1.raw = EMMC->CONTROL1;
   if(c1.fields.reset_host_circuit != 0){
     SYS_LOG("failed to reset properly"); 
     return STATUS_ERR;
   }
   SYS_LOG("reset successful");
+
   return STATUS_OK;
 }
 
-status_t emmc_enable_clock(){
-  EMMC->CONTROL2 = 0;
+status_t emmc_set_clock(uint32_t frequency_hz){
 
+  // Clock Supply Sequence (Host Controller Spec 3.2.1)
+  // enable internal clock and set divider such that frequency is 400kHz
+  // on reset all cards are set to 400kHz frequence (Physical Layer Spec 4.2.1)
+  
+  if(frequency_hz > BASE_CLOCK_FREQ){
+    SYS_LOG("invalid clock freq: %d", frequency_hz);
+    return STATUS_ERR;
+  }
+
+  uint8_t divider = BASE_CLOCK_FREQ / frequency_hz;
   emmc_control1_t c1;
   c1.raw = EMMC->CONTROL1;
-  c1.fields.clk_internal_clock_enable = 1; // enable internal clock
-  c1.fields.clk_freq_lsb = 0x80; // set clock divder to 1/(2*128) to get close to 400kHz id frequency
-  c1.fields.data_timeout_unit_exponent = 7; // timeout unit exponent
+  c1.fields.clk_enable = 0;
+  c1.fields.clk_internal_clock_enable = 1; 
+  c1.fields.clk_freq_lsb = divider; 
+  c1.fields.data_timeout_unit_exponent = 7; // command timeout
   EMMC->CONTROL1 = c1.raw;
 
   sys_timer_sleep(1000000);
+
+  // check to make sure clock stabilized with new settings
   c1.raw = EMMC->CONTROL1;
   if(c1.fields.clk_stable == 0){
     SYS_LOG("clock failed to stabilize");
@@ -126,10 +138,10 @@ status_t emmc_enable_clock(){
   }
   SYS_LOG("clock stabilized");
 
-  c1.fields.clk_enable = 1; // enable SD clock
+  // enable SD clock
+  c1.fields.clk_enable = 1; 
   EMMC->CONTROL1 = c1.raw;
 
-  sys_timer_sleep(2000);
   return STATUS_OK;
 }
 
@@ -150,33 +162,17 @@ status_t emmc_issue_command(emmc_command_t command, emmc_transfer_mode_t transfe
     return STATUS_ERR;
   }
 
-  response->resp0 = EMMC->RESPONSE0;
-  response->resp1 = EMMC->RESPONSE1;
-  response->resp2 = EMMC->RESPONSE2;
-  response->resp3 = EMMC->RESPONSE3;
+  response->response0 = EMMC->RESPONSE0;
+  response->response1 = EMMC->RESPONSE1;
+  response->response2 = EMMC->RESPONSE2;
+  response->response3 = EMMC->RESPONSE3;
   return STATUS_OK;
 }
 
 status_t emmc_send_command(emmc_command_index_t command_index, emmc_argument_t argument, emmc_response_t* response){
-  emmc_response_type_t response_type;
-  if(emmc_command_response_type(command_index, &response_type) != STATUS_OK){
-    SYS_LOG("failed to get response type");
-    return STATUS_ERR;
-  }
-
-  emmc_data_direction_t data_dir;
-  if(emmc_command_data_direction(command_index, &data_dir) != STATUS_OK){
-    SYS_LOG("failed to get data direction");
-    return STATUS_ERR;
-  }
-
   emmc_command_t cmd = {0};
-  cmd.fields.command_index = command_index;
-  cmd.fields.command_response_type = response_type;
-
   emmc_transfer_mode_t tm = {0};
-  tm.fields.data_transfer_direction = data_dir;
-
+  if(emmc_command_fields(command_index, &cmd, &tm) != STATUS_OK) return STATUS_ERR;
   if(emmc_issue_command(cmd, tm, argument, response) != STATUS_OK) return STATUS_ERR;
 
   return STATUS_OK;
@@ -187,126 +183,163 @@ status_t emmc_send_app_command(emmc_app_command_t app_command, emmc_argument_t a
   command_arg.argument1 = 0;
   command_arg.argument2 = 0;
   if(emmc_send_command(APP_CMD, command_arg, response) != STATUS_OK) return STATUS_ERR;
-
-
-  emmc_response_type_t response_type;
-  if(emmc_app_command_response_type(app_command, &response_type) != STATUS_OK){
-    SYS_LOG("failed to get response type");
-    return STATUS_ERR;
-  }
-
-  emmc_data_direction_t data_dir;
-  if(emmc_app_command_data_direction(app_command, &data_dir) != STATUS_OK){
-    SYS_LOG("failed to get data direction");
-    return STATUS_ERR;
-  }
-
+ 
   emmc_command_t cmd = {0};
-  cmd.fields.command_index = app_command;
-  cmd.fields.command_response_type = response_type;
-
   emmc_transfer_mode_t tm = {0};
-  tm.fields.data_transfer_direction = data_dir;
-
+  if(emmc_app_command_fields(app_command, &cmd, &tm) != STATUS_OK) return STATUS_ERR;
   if(emmc_issue_command(cmd, tm, argument, response) != STATUS_OK) return STATUS_ERR;
 
   return STATUS_OK;
 }
 
 status_t emmc_init(void){
+  
   if(emmc_reset_host_circuit() != STATUS_OK) return STATUS_ERR;
 
+  // Stops interrupt handler being called
+  EMMC->INTERRUPT_EN = 0;
+
+  // Interrupts need to be cleared by writing 1 to register
+  EMMC->INTERRUPT |= 0xffffffff;
+
+  // Unmask all interrupts
+  EMMC->INTERRUPT_MASK |= 0xffffffff;
+
+  // This card detect and clock setup process is documented in
+  // SD Host Controller Spec, Sec 3 (p. 92)
   emmc_status_t status;
   status.raw = EMMC->STATUS;
   if(status.fields.card_inserted == 0){
     SYS_LOG("no card insterted");
   }
+ 
+  if(emmc_set_clock(IDENTIFICATION_MODE_CLOCK_FREQ) != STATUS_OK) return STATUS_ERR; 
 
-  if(emmc_enable_clock() != STATUS_OK) return STATUS_ERR; 
+  sys_timer_sleep(2000); 
 
-  EMMC->INTERRUPT_EN = 0;
-  EMMC->INTERRUPT |= 0xffffffff;
-  EMMC->INTERRUPT_MASK |= 0xffffffff;
-  EMMC->BLOCK_SIZE_COUNT = 0x200;
-
-  sys_timer_sleep(2000);
-
+  // Card Initialization Procedure, see Physical Layer Spec Sec 4
+  
+  // Send GO_IDLE_STATE to reset the card to idle state
   emmc_command_t cmd = {0};
   emmc_transfer_mode_t tm = {0};
-
-  emmc_response_t resp;
-  emmc_argument_t arg;
-  arg.argument1 = 0;
-  arg.argument2 = 0;
+  emmc_response_t resp = {0};
+  emmc_argument_t arg = {0};
   if(emmc_send_command(GO_IDLE_STATE, arg, &resp) != STATUS_OK) return STATUS_ERR;
 
-
-  arg.argument1 = 0x1aa;
+  // SEND_IF_COND to verify card is responding, should echo back the argument
+  emmc_send_if_cond_arg_t send_if_cond_arg = {0};
+  send_if_cond_arg.fields.check_pattern = 0xaa;
+  send_if_cond_arg.fields.voltage_supplied = 0x1; // corresponds to 2.7-3.6v
+  arg.argument1 = send_if_cond_arg.raw;
   if(emmc_send_command(SEND_IF_COND, arg, &resp) != STATUS_OK) return STATUS_ERR;
+  if(resp.response0 != arg.argument1){
+    SYS_LOG("SEND_IF_COND failed: arg1: %#x, resp0: %#x", arg.argument1, resp.response0);
+    return STATUS_ERR;
+  }
   
-  SYS_LOG("int: %#x, cmdtm: %#x, resp0: %#x, resp1: %#x, resp2: %#x, resp3: %#x", EMMC->INTERRUPT, (cmd.raw << 16) + tm.raw, EMMC->RESPONSE0, EMMC->RESPONSE1, EMMC->RESPONSE2, EMMC->RESPONSE3);
+  // Card Initialization
+  emmc_ocr_t ocr = {0};
+  emmc_sd_send_op_cond_arg_t sd_send_op_cond_arg = {0};
+  sd_send_op_cond_arg.fields.voltage_window = 0x1ff; // 2.6-3.9v;
+  sd_send_op_cond_arg.fields.host_capacity_support = 1; // support SDHC and SDXC
+  for(int i = 0; i < 10; ++i){
+    // repeat command until power up is finished
+    arg.argument1 = sd_send_op_cond_arg.raw;
+    arg.argument2 = 0;
+    if(emmc_send_app_command(SD_SEND_OP_COND, arg, &resp) != STATUS_OK) return STATUS_ERR;
 
+    ocr.raw = resp.response0;
+    if(ocr.fields.card_power_up_status) break;
+  }
+
+  if(!(ocr.fields.card_power_up_status)){
+    SYS_LOG("card failed to finish power up");
+    return STATUS_ERR;
+  }
+
+  if(ocr.fields.card_capacity_status) SYS_LOG("card is SDHC or SDXC");
+
+  // get the card identification register
   arg.argument1 = 0;
   arg.argument2 = 0;
-  if(emmc_send_app_command(SD_SEND_OP_COND, arg, &resp) != STATUS_OK) return STATUS_ERR;
-/*
-  EMMC->ARGUMENT1 = 0x0;
-  EMMC->INTERRUPT |= 0xffffffff;
-  cmd.fields.command_index = 55;
-  cmd.fields.command_response_type = 0b10;
-  cmd.fields.response_crc_check_enable = 1;
-  tm.fields.data_transfer_direction = 0;
-  sys_timer_sleep(2000);
-  EMMC->COMMAND_TRANSFER_MODE = (cmd.raw << 16) + tm.raw;
-  sys_timer_sleep(1000000);
-  SYS_LOG("int: %#x, cmdtm: %#x, resp0: %#x, resp1: %#x, resp2: %#x, resp3: %#x", EMMC->INTERRUPT, (cmd.raw << 16) + tm.raw, EMMC->RESPONSE0, EMMC->RESPONSE1, EMMC->RESPONSE2, EMMC->RESPONSE3);
+  if(emmc_send_command(ALL_SEND_CID, arg, &resp) != STATUS_OK) return STATUS_ERR;
 
-  EMMC->INTERRUPT |= 0xffffffff;
-  cmd.fields.command_index = 41;
-  cmd.fields.command_response_type = 0b10;
-  cmd.fields.response_crc_check_enable = 0;
-  tm.fields.data_transfer_direction = 0;
-  sys_timer_sleep(2000);
-  EMMC->COMMAND_TRANSFER_MODE = (cmd.raw << 16) + tm.raw;
-  sys_timer_sleep(1000000);
-  SYS_LOG("int: %#x, cmdtm: %#x, resp0: %#x, resp1: %#x, resp2: %#x, resp3: %#x", EMMC->INTERRUPT, (cmd.raw << 16) + tm.raw, EMMC->RESPONSE0, EMMC->RESPONSE1, EMMC->RESPONSE2, EMMC->RESPONSE3);
-  */
-for(int i = 0; i < 10; ++i){
-  EMMC->ARGUMENT1 = 0x0;
-  EMMC->INTERRUPT |= 0xffffffff;
-  cmd.fields.command_index = 55;
-  cmd.fields.command_response_type = 0b10;
-  cmd.fields.response_crc_check_enable = 1;
-  tm.fields.data_transfer_direction = 0;
-  sys_timer_sleep(2000);
-  EMMC->COMMAND_TRANSFER_MODE = (cmd.raw << 16) + tm.raw;
-  sys_timer_sleep(1000000);
-  SYS_LOG("int: %#x, cmdtm: %#x, resp0: %#x, resp1: %#x, resp2: %#x, resp3: %#x", EMMC->INTERRUPT, (cmd.raw << 16) + tm.raw, EMMC->RESPONSE0, EMMC->RESPONSE1, EMMC->RESPONSE2, EMMC->RESPONSE3);
-  
-  EMMC->INTERRUPT |= 0xffffffff;
-  EMMC->ARGUMENT1 = 0x00ff8000 | (1 << 30);
-  cmd.fields.command_index = 41;
-  cmd.fields.command_response_type = 0b10;
-  cmd.fields.response_crc_check_enable = 0;
-  tm.fields.data_transfer_direction = 0;
-  sys_timer_sleep(2000);
-  EMMC->COMMAND_TRANSFER_MODE = (cmd.raw << 16) + tm.raw;
-  sys_timer_sleep(1000000);
-  SYS_LOG("int: %#x, cmdtm: %#x, resp0: %#x, resp1: %#x, resp2: %#x, resp3: %#x", EMMC->INTERRUPT, (cmd.raw << 16) + tm.raw, EMMC->RESPONSE0, EMMC->RESPONSE1, EMMC->RESPONSE2, EMMC->RESPONSE3);
-  if(EMMC->RESPONSE0 & (1 << 31)) break;
-}
+  emmc_cid_t cid = {0};
+  cid.raw[0] = resp.response0;
+  cid.raw[1] = resp.response1;
+  cid.raw[2] = resp.response2;
+  cid.raw[3] = resp.response3;
+  SYS_LOG("MID: %#x, OID: %c%c, PNM: %c%c%c%c%c", 
+          cid.fields.manufacturer_id,
+          cid.fields.oem_id[1], cid.fields.oem_id[0],
+          cid.fields.product_name[4], cid.fields.product_name[3], cid.fields.product_name[2],
+          cid.fields.product_name[1], cid.fields.product_name[0]);
 
-  EMMC->INTERRUPT |= 0xffffffff;
-  EMMC->ARGUMENT1 = 0;
-  cmd.fields.command_index = 2;
-  cmd.fields.command_response_type = 0b01;
-  cmd.fields.response_crc_check_enable = 1;
-  tm.fields.data_transfer_direction = 0;
-  sys_timer_sleep(2000);
-  EMMC->COMMAND_TRANSFER_MODE = (cmd.raw << 16) + tm.raw;
-  sys_timer_sleep(1000000);
-  SYS_LOG("int: %#8x, cmdtm: %#8x, resp0: %#8x, resp1: %#8x, resp2: %#8x, resp3: %#8x", EMMC->INTERRUPT, (cmd.raw << 16) + tm.raw, EMMC->RESPONSE0, EMMC->RESPONSE1, EMMC->RESPONSE2, EMMC->RESPONSE3);
-  // card initialization and identification process p. 21 physical layer simplified spec
-    return STATUS_OK;
+  // get the relative card address (RCA)
+  arg.argument1 = 0;
+  arg.argument2 = 0;
+  if(emmc_send_command(SEND_RELATIVE_ADDR, arg, &resp) != STATUS_OK) return STATUS_ERR;
+ 
+  emmc_card_status_t card_status = {0};
+  card_status.raw = resp.response0;  
+  SYS_LOG("RCA: %#x, current_state: %#x, error: %#x", card_status.fields.relative_card_address, card_status.fields.current_state, card_status.fields.error);
+
+  // set clock to 25 MHz which is max freq for microSDXC
+  if(emmc_set_clock(DATA_TRANSFER_MODE_CLOCK_FREQ) != STATUS_OK) return STATUS_ERR; 
+  arg.argument1 = card_status.fields.relative_card_address << 16;
+  if(emmc_send_command(SEND_CSD, arg, &resp) != STATUS_OK){
+    SYS_LOG("int: %#x", EMMC->INTERRUPT);
+    return STATUS_ERR;
+  }
+  emmc_csd_t csd = {0};
+  csd.raw[0] = resp.response0;
+  csd.raw[1] = resp.response1;
+  csd.raw[2] = resp.response2;
+  csd.raw[3] = resp.response3;
+  SYS_LOG("r0: %#x, r1: %#x, r2: %#x, r3 %#x", resp.response0, resp.response1, resp.response2, resp.response3);
+  SYS_LOG("file_format: %d, csd_structure: %d", csd.fields.file_format, csd.fields.csd_structure);
+
+  // Must be set to 512, see Host Controller Spec 1.7.2
+  EMMC->BLOCK_SIZE_COUNT = 0x200;
+
+  arg.argument1 = card_status.fields.relative_card_address << 16;
+  if(emmc_send_command(SELECT_DESELECT_CARD, arg, &resp) != STATUS_OK) return STATUS_ERR;
+  card_status.raw = resp.response0;  
+  SYS_LOG("RCA: %#x, current_state: %#x, error: %#x", card_status.fields.relative_card_address, card_status.fields.current_state, card_status.fields.error);
+
+  arg.argument1 = 0;
+  if(emmc_send_command(READ_SINGLE_BLOCK, arg, &resp) != STATUS_OK) return STATUS_ERR;
+  sys_timer_sleep(2000); 
+  SYS_LOG("RCA: %#x, current_state: %#x, error: %#x, int: %#x", card_status.fields.relative_card_address, card_status.fields.current_state, card_status.fields.error, EMMC->INTERRUPT);
+
+  uint32_t i = 0;
+  emmc_interrupt_t interrupt = {0};
+  interrupt.raw = EMMC->INTERRUPT;
+  uint8_t block[512];
+  while(!interrupt.fields.data_done){
+    uint32_t read = EMMC->DATA;
+    block[i] = read & 0xff;
+    block[i+1] = (read & 0xff00) >> 8;
+    block[i+2] = (read & 0xff0000) >> 16;
+    block[i+3] = (read & 0xff000000) >> 24;
+    interrupt.raw = EMMC->INTERRUPT;
+    i += 4;
+  }
+  SYS_LOG("read complete, %d bytes read", i);
+  for(int j = 0; j < 32; ++j){
+    printf("0x%04x   ", j*16);
+    for(int k = 0; k < 8; ++k){
+      printf("%02x ", block[j*16 + k]);
+    }
+    printf("  ");
+    for(int k = 8; k < 16; ++k){
+      printf("%02x ", block[j*16 + k]);
+    }
+    printf("\n");
+  }
+
+
+
+  return STATUS_OK;
 }
 
