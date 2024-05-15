@@ -201,21 +201,39 @@ typedef struct {
   uint32_t INTERRUPT;
   uint32_t INTERRUPT_MASK;
   uint32_t INTERRUPT_EN;
-  uint32_t CONTROL2;
-  uint32_t CAPABILITIES0;
-  uint32_t CAPABILITIES1;
-  // need to properly calc offset
-  //uint32_t FORCE_INTERRUPT;
-  //uint32_t BOOT_TIMEOUT;
-  //uint32_t DEBUG_CONFIG;
-  //uint32_t EXTENSION_FIFO_CONFIG;
-  //uint32_t EXTENSION_FIFO_ENABLE;
-  //uint32_t TUNE_STEP;
-  //uint32_t TUNE_STEPS_SDR;
-  //uint32_t TUNE_STEPS_DDR;
-  //uint32_t SPI_INTERRUPT_SELECT;
-  //uint32_t SLOT_INTERRUPT_STATUS_VERSION;
+  uint32_t CONTROL2; // 0x3c
+  uint32_t CAPABILITIES0; // 0x40
+  uint32_t CAPABILITIES1; // 0x44
+  uint32_t reserved0; // 0x48
+  uint32_t reserved1; // 0x4c
+  uint32_t FORCE_INTERRUPT;
+  uint32_t BOOT_TIMEOUT;
+  uint32_t DEBUG_CONFIG;
+  uint32_t EXTENSION_FIFO_CONFIG;
+  uint32_t EXTENSION_FIFO_ENABLE;
+  uint32_t TUNE_STEP;
+  uint32_t TUNE_STEPS_SDR;
+  uint32_t TUNE_STEPS_DDR;
+  uint32_t SPI_INTERRUPT_SELECT;
+  uint32_t SLOT_INTERRUPT_STATUS_VERSION;
 }emmc_t;
 
 extern emmc_t* EMMC;
+
+/*
+ * DMA Controller
+ */
+
+#define DMA_CONTROLLER_OFFSET 0x7000
+#define DMA15_OFFSET 0xE05000
+#define DMA_CHANNEL_NUM 16
+
+typedef struct {
+  uint32_t CONTROL_STATUS;
+  uint32_t CONTROL_BLOCK_ADDRESS;
+  uint32_t reserved[6];
+  uint32_t DEBUG;
+} dma_channel_t;
+
+extern dma_channel_t* DMA_CHANNEL[DMA_CHANNEL_NUM];
 
