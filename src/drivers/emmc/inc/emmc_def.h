@@ -13,6 +13,7 @@ typedef enum {
   SEND_IF_COND = 8,
   SEND_CSD = 9,
   READ_SINGLE_BLOCK = 17,
+  WRITE_SINGLE_BLOCK = 24,
   APP_CMD = 55
 } emmc_command_index_t;
 

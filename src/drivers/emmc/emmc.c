@@ -9,6 +9,12 @@
 #define IDENTIFICATION_MODE_CLOCK_FREQ 400000 // 400kHz
 #define DATA_TRANSFER_MODE_CLOCK_FREQ 25000000 // 25MHz
 
+typedef struct {
+  uint16_t relative_card_address;
+} emmc_state_t;
+
+static emmc_state_t emmc_state;
+
 status_t emmc_command_fields(emmc_command_index_t command_index, emmc_command_t* command,
                              emmc_transfer_mode_t* transfer_mode){
   switch(command_index){
@@ -36,11 +42,18 @@ status_t emmc_command_fields(emmc_command_index_t command_index, emmc_command_t*
     case SELECT_DESELECT_CARD:
       command->fields.command_index = SELECT_DESELECT_CARD;
       command->fields.command_response_type = RESPONSE_48_BIT_BUSY;
+      command->fields.response_crc_check_enable = 1;
       transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
     case SEND_IF_COND:
       command->fields.command_index = SEND_IF_COND;
       command->fields.command_response_type = RESPONSE_48_BIT;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
+      break;
+    case SEND_CSD:
+      command->fields.command_index = SEND_CSD;
+      command->fields.command_response_type = RESPONSE_136_BIT;
+      command->fields.response_crc_check_enable = 1;
       transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
     case READ_SINGLE_BLOCK:
@@ -49,15 +62,15 @@ status_t emmc_command_fields(emmc_command_index_t command_index, emmc_command_t*
       command->fields.command_is_data_transfer = 1;
       transfer_mode->fields.data_transfer_direction = CARD_TO_HOST;
       break;
+    case WRITE_SINGLE_BLOCK:
+      command->fields.command_index = WRITE_SINGLE_BLOCK;
+      command->fields.command_response_type = RESPONSE_48_BIT;
+      command->fields.command_is_data_transfer = 1;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
+      break;
     case APP_CMD:
       command->fields.command_index = APP_CMD;
       command->fields.command_response_type = RESPONSE_48_BIT;
-      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
-      break;
-    case SEND_CSD:
-      command->fields.command_index = SEND_CSD;
-      command->fields.command_response_type = RESPONSE_136_BIT;
-      command->fields.response_crc_check_enable = 1;
       transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
     default:
@@ -192,6 +205,61 @@ status_t emmc_send_app_command(emmc_app_command_t app_command, emmc_argument_t a
   return STATUS_OK;
 }
 
+status_t emmc_read_block(uint32_t block_address, emmc_block_t* block){
+  emmc_response_t resp;
+  emmc_argument_t arg;
+
+  arg.argument1 = block_address;
+  if(emmc_send_command(READ_SINGLE_BLOCK, arg, &resp) != STATUS_OK) return STATUS_ERR;
+
+  emmc_interrupt_t interrupt = {0};
+  interrupt.raw = EMMC->INTERRUPT;
+  while(!interrupt.fields.read_ready) interrupt.raw = EMMC->INTERRUPT;
+  uint32_t i = 0;
+  while(!interrupt.fields.data_done){
+    uint32_t read = EMMC->DATA;
+    block->buf[i] = read & 0xff;
+    block->buf[i+1] = (read & 0xff00) >> 8;
+    block->buf[i+2] = (read & 0xff0000) >> 16;
+    block->buf[i+3] = (read & 0xff000000) >> 24;
+    interrupt.raw = EMMC->INTERRUPT;
+    i += 4;
+  }
+  SYS_LOG("read complete, %d bytes read", i); 
+
+  return STATUS_OK;
+}
+
+status_t emmc_write_block(uint32_t block_address, emmc_block_t* block){
+  emmc_response_t resp;
+  emmc_argument_t arg;
+
+  arg.argument1 = block_address;
+  if(emmc_send_command(WRITE_SINGLE_BLOCK, arg, &resp) != STATUS_OK) return STATUS_ERR;
+
+  emmc_interrupt_t interrupt = {0};
+  interrupt.raw = EMMC->INTERRUPT;
+  while(!interrupt.fields.write_ready) interrupt.raw = EMMC->INTERRUPT;
+  EMMC->INTERRUPT |= 0xffffffff;
+  for(uint32_t i = 0; i < EMMC_BLOCK_SIZE; i += 4){
+    EMMC->DATA = (block->buf[i] + (block->buf[i+1] << 8) + (block->buf[i+2] << 16) + (block->buf[i+3] << 24));
+  }
+
+  for(uint32_t i = 0; i < 100000; ++i){
+    interrupt.raw = EMMC->INTERRUPT;
+    if(interrupt.fields.data_done) break;
+    sys_timer_sleep(5);
+  }
+
+  if(!interrupt.fields.data_done){
+    SYS_LOG("data not done");
+    return STATUS_ERR;
+  }
+
+  SYS_LOG("write complete");
+  return STATUS_OK;
+}
+
 status_t emmc_init(void){
   
   if(emmc_reset_host_circuit() != STATUS_OK) return STATUS_ERR;
@@ -284,62 +352,17 @@ status_t emmc_init(void){
   card_status.raw = resp.response0;  
   SYS_LOG("RCA: %#x, current_state: %#x, error: %#x", card_status.fields.relative_card_address, card_status.fields.current_state, card_status.fields.error);
 
+  emmc_state.relative_card_address = card_status.fields.relative_card_address;
+
   // set clock to 25 MHz which is max freq for microSDXC
   if(emmc_set_clock(DATA_TRANSFER_MODE_CLOCK_FREQ) != STATUS_OK) return STATUS_ERR; 
-  arg.argument1 = card_status.fields.relative_card_address << 16;
-  if(emmc_send_command(SEND_CSD, arg, &resp) != STATUS_OK){
-    SYS_LOG("int: %#x", EMMC->INTERRUPT);
-    return STATUS_ERR;
-  }
-  emmc_csd_t csd = {0};
-  csd.raw[0] = resp.response0;
-  csd.raw[1] = resp.response1;
-  csd.raw[2] = resp.response2;
-  csd.raw[3] = resp.response3;
-  SYS_LOG("r0: %#x, r1: %#x, r2: %#x, r3 %#x", resp.response0, resp.response1, resp.response2, resp.response3);
-  SYS_LOG("file_format: %d, csd_structure: %d", csd.fields.file_format, csd.fields.csd_structure);
 
   // Must be set to 512, see Host Controller Spec 1.7.2
   EMMC->BLOCK_SIZE_COUNT = 0x200;
 
-  arg.argument1 = card_status.fields.relative_card_address << 16;
+  // put the card into transfer mode
+  arg.argument1 = emmc_state.relative_card_address << 16;
   if(emmc_send_command(SELECT_DESELECT_CARD, arg, &resp) != STATUS_OK) return STATUS_ERR;
-  card_status.raw = resp.response0;  
-  SYS_LOG("RCA: %#x, current_state: %#x, error: %#x", card_status.fields.relative_card_address, card_status.fields.current_state, card_status.fields.error);
-
-  arg.argument1 = 0;
-  if(emmc_send_command(READ_SINGLE_BLOCK, arg, &resp) != STATUS_OK) return STATUS_ERR;
-  sys_timer_sleep(2000); 
-  SYS_LOG("RCA: %#x, current_state: %#x, error: %#x, int: %#x", card_status.fields.relative_card_address, card_status.fields.current_state, card_status.fields.error, EMMC->INTERRUPT);
-
-  uint32_t i = 0;
-  emmc_interrupt_t interrupt = {0};
-  interrupt.raw = EMMC->INTERRUPT;
-  uint8_t block[512];
-  while(!interrupt.fields.data_done){
-    uint32_t read = EMMC->DATA;
-    block[i] = read & 0xff;
-    block[i+1] = (read & 0xff00) >> 8;
-    block[i+2] = (read & 0xff0000) >> 16;
-    block[i+3] = (read & 0xff000000) >> 24;
-    interrupt.raw = EMMC->INTERRUPT;
-    i += 4;
-  }
-  SYS_LOG("read complete, %d bytes read", i);
-  for(int j = 0; j < 32; ++j){
-    printf("0x%04x   ", j*16);
-    for(int k = 0; k < 8; ++k){
-      printf("%02x ", block[j*16 + k]);
-    }
-    printf("  ");
-    for(int k = 8; k < 16; ++k){
-      printf("%02x ", block[j*16 + k]);
-    }
-    printf("\n");
-  }
-
-
-
   return STATUS_OK;
 }
 
