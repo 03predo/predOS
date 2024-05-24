@@ -40,25 +40,12 @@ void setup_app_stack(){
 
 }
 
-void print_block(emmc_block_t block){
-  for(int j = 0; j < 32; ++j){
-    printf("0x%04x   ", j*16);
-    for(int k = 0; k < 8; ++k){
-      printf("%02x ", block.buf[j*16 + k]);
-    }
-    printf("  ");
-    for(int k = 8; k < 16; ++k){
-      printf("%02x ", block.buf[j*16 + k]);
-    }
-    printf("\n");
-  }
-}
 
 int kernel_start(){
 
   gpio_func(LED_PIN, GPIO_OUTPUT); 
 
-  uart_init(5000000);
+  uart_init(3000000);
   _enable_interrupts();
 
   SYS_LOG("starting predOS");
@@ -66,15 +53,17 @@ int kernel_start(){
   emmc_init();
   emmc_block_t block;
   emmc_read_block(0, &block);
-  print_block(block);
+  emmc_print_block(block);
   block.buf[0] = 0xa;
   block.buf[1] = 0xb;
   block.buf[2] = 0xc;
   emmc_write_block(0, &block);
   emmc_read_block(0, &block);
-  print_block(block);
+  emmc_print_block(block);
+
+  gpio_pulse(LED_PIN, 2); 
   while(1){
-    gpio_pulse(LED_PIN, 5);
+    //gpio_pulse(LED_PIN, 5);
     sys_timer_sleep(2000000);
   }
 

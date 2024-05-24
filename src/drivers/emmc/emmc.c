@@ -15,6 +15,21 @@ typedef struct {
 
 static emmc_state_t emmc_state;
 
+status_t emmc_print_block(emmc_block_t block){
+  for(int j = 0; j < 32; ++j){
+    printf("0x%04x   ", j*16);
+    for(int k = 0; k < 8; ++k){
+      printf("%02x ", block.buf[j*16 + k]);
+    }
+    printf("  ");
+    for(int k = 8; k < 16; ++k){
+      printf("%02x ", block.buf[j*16 + k]);
+    }
+    printf("\n");
+  }
+  return STATUS_OK;
+}
+
 status_t emmc_command_fields(emmc_command_index_t command_index, emmc_command_t* command,
                              emmc_transfer_mode_t* transfer_mode){
   switch(command_index){
@@ -256,7 +271,7 @@ status_t emmc_write_block(uint32_t block_address, emmc_block_t* block){
     return STATUS_ERR;
   }
 
-  SYS_LOG("write complete");
+  //SYS_LOG("write complete");
   return STATUS_OK;
 }
 

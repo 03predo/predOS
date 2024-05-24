@@ -10,4 +10,5 @@ typedef struct{
 
 status_t emmc_read_block(uint32_t block_address, emmc_block_t* block);
 status_t emmc_write_block(uint32_t block_address, emmc_block_t* block);
+status_t emmc_print_block(emmc_block_t);
 status_t emmc_init(void);
