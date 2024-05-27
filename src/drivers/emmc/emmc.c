@@ -9,6 +9,11 @@
 #define IDENTIFICATION_MODE_CLOCK_FREQ 400000 // 400kHz
 #define DATA_TRANSFER_MODE_CLOCK_FREQ 25000000 // 25MHz
 
+#define BYTE0(X) (0xff & X)
+#define BYTE1(X) ((0xff00 & X) >> 8)
+#define BYTE2(X) ((0xff0000 & X) >> 16)
+#define BYTE3(X) ((0xff000000 & X) >> 24)
+
 typedef struct {
   uint16_t relative_card_address;
 } emmc_state_t;
@@ -18,12 +23,14 @@ static emmc_state_t emmc_state;
 status_t emmc_print_block(emmc_block_t block){
   for(int j = 0; j < 32; ++j){
     printf("0x%04x   ", j*16);
-    for(int k = 0; k < 8; ++k){
-      printf("%02x ", block.buf[j*16 + k]);
-    }
-    printf("  ");
-    for(int k = 8; k < 16; ++k){
-      printf("%02x ", block.buf[j*16 + k]);
+    for(int k = 0; k < 4; ++k){
+      printf("%02x %02x %02x %02x ",
+          BYTE0(block.buf[j*4 + k]),
+          BYTE1(block.buf[j*4 + k]),
+          BYTE2(block.buf[j*4 + k]),
+          BYTE3(block.buf[j*4 + k])
+      );
+      if(k == 1) printf(" ");
     }
     printf("\n");
   }
@@ -71,17 +78,41 @@ status_t emmc_command_fields(emmc_command_index_t command_index, emmc_command_t*
       command->fields.response_crc_check_enable = 1;
       transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
       break;
+    case STOP_TRANSMISSION:
+      command->fields.command_index = STOP_TRANSMISSION;
+      command->fields.command_response_type = RESPONSE_48_BIT_BUSY;
+      command->fields.response_crc_check_enable = 1;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
+      break;
     case READ_SINGLE_BLOCK:
       command->fields.command_index = READ_SINGLE_BLOCK;
       command->fields.command_response_type = RESPONSE_48_BIT;
       command->fields.command_is_data_transfer = 1;
       transfer_mode->fields.data_transfer_direction = CARD_TO_HOST;
       break;
+    case READ_MULTIPLE_BLOCK:
+      command->fields.command_index = READ_MULTIPLE_BLOCK;
+      command->fields.command_response_type = RESPONSE_48_BIT;
+      command->fields.command_is_data_transfer = 1;
+      transfer_mode->fields.data_transfer_direction = CARD_TO_HOST;
+      transfer_mode->fields.multi_block_transfer = 1;
+      transfer_mode->fields.block_count_enable = 1;
+      transfer_mode->fields.auto_command_enable = 1; // send CMD12 after
+      break;
     case WRITE_SINGLE_BLOCK:
       command->fields.command_index = WRITE_SINGLE_BLOCK;
       command->fields.command_response_type = RESPONSE_48_BIT;
       command->fields.command_is_data_transfer = 1;
       transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
+      break;
+    case WRITE_MULTIPLE_BLOCK:
+      command->fields.command_index = WRITE_MULTIPLE_BLOCK;
+      command->fields.command_response_type = RESPONSE_48_BIT;
+      command->fields.command_is_data_transfer = 1;
+      transfer_mode->fields.data_transfer_direction = HOST_TO_CARD;
+      transfer_mode->fields.multi_block_transfer = 1;
+      transfer_mode->fields.block_count_enable = 1;
+      transfer_mode->fields.auto_command_enable = 1; // send CMD12 after
       break;
     case APP_CMD:
       command->fields.command_index = APP_CMD;
@@ -220,46 +251,53 @@ status_t emmc_send_app_command(emmc_app_command_t app_command, emmc_argument_t a
   return STATUS_OK;
 }
 
-status_t emmc_read_block(uint32_t block_address, emmc_block_t* block){
+status_t emmc_read_block(uint32_t start_block_address, uint16_t num_blocks, emmc_block_t block[]){
+  EMMC->BLOCK_SIZE_COUNT |= (num_blocks << 16);
+
   emmc_response_t resp;
   emmc_argument_t arg;
-
-  arg.argument1 = block_address;
-  if(emmc_send_command(READ_SINGLE_BLOCK, arg, &resp) != STATUS_OK) return STATUS_ERR;
+  arg.argument1 = start_block_address;
+  if(emmc_send_command(READ_MULTIPLE_BLOCK, arg, &resp) != STATUS_OK) return STATUS_ERR;
 
   emmc_interrupt_t interrupt = {0};
   interrupt.raw = EMMC->INTERRUPT;
   while(!interrupt.fields.read_ready) interrupt.raw = EMMC->INTERRUPT;
-  uint32_t i = 0;
-  while(!interrupt.fields.data_done){
-    uint32_t read = EMMC->DATA;
-    block->buf[i] = read & 0xff;
-    block->buf[i+1] = (read & 0xff00) >> 8;
-    block->buf[i+2] = (read & 0xff0000) >> 16;
-    block->buf[i+3] = (read & 0xff000000) >> 24;
-    interrupt.raw = EMMC->INTERRUPT;
-    i += 4;
+  sys_timer_sleep(100);
+
+  for(uint32_t i = 0; i < num_blocks; ++i){
+    for(uint32_t j = 0; j < (EMMC_BLOCK_SIZE / sizeof(uint32_t)); j++){
+      block[i].buf[j] = EMMC->DATA;    
+    }
   }
-  SYS_LOG("read complete, %d bytes read", i); 
+
+  SYS_LOG("read complete, read %d block(s)", num_blocks); 
 
   return STATUS_OK;
 }
 
-status_t emmc_write_block(uint32_t block_address, emmc_block_t* block){
+status_t emmc_start_write(uint32_t start_block_address, uint16_t num_blocks){
+  EMMC->BLOCK_SIZE_COUNT |= (num_blocks << 16);
+
   emmc_response_t resp;
   emmc_argument_t arg;
-
-  arg.argument1 = block_address;
-  if(emmc_send_command(WRITE_SINGLE_BLOCK, arg, &resp) != STATUS_OK) return STATUS_ERR;
+  arg.argument1 = start_block_address;
+  if(emmc_send_command(WRITE_MULTIPLE_BLOCK, arg, &resp) != STATUS_OK) return STATUS_ERR;
 
   emmc_interrupt_t interrupt = {0};
   interrupt.raw = EMMC->INTERRUPT;
   while(!interrupt.fields.write_ready) interrupt.raw = EMMC->INTERRUPT;
   EMMC->INTERRUPT |= 0xffffffff;
-  for(uint32_t i = 0; i < EMMC_BLOCK_SIZE; i += 4){
-    EMMC->DATA = (block->buf[i] + (block->buf[i+1] << 8) + (block->buf[i+2] << 16) + (block->buf[i+3] << 24));
-  }
 
+  return STATUS_OK;
+}
+
+status_t emmc_write_word(uint32_t word){
+  EMMC->DATA = word;
+  return STATUS_OK;
+}
+
+status_t emmc_finish_write(){
+  emmc_interrupt_t interrupt = {0};
   for(uint32_t i = 0; i < 100000; ++i){
     interrupt.raw = EMMC->INTERRUPT;
     if(interrupt.fields.data_done) break;
@@ -271,7 +309,20 @@ status_t emmc_write_block(uint32_t block_address, emmc_block_t* block){
     return STATUS_ERR;
   }
 
-  //SYS_LOG("write complete");
+  SYS_LOG("write complete");
+}
+
+status_t emmc_write_block(uint32_t start_block_address, uint16_t num_blocks, emmc_block_t block[]){
+  if(emmc_start_write(start_block_address, num_blocks) != STATUS_OK) return STATUS_ERR;
+
+  for(uint32_t i = 0; i < num_blocks; i++){
+    for(uint32_t j = 0; j < (EMMC_BLOCK_SIZE / sizeof(uint32_t)); j++){
+      EMMC->DATA = block[i].buf[j];
+    }
+  }
+
+  if(emmc_finish_write() != STATUS_OK) return STATUS_ERR;
+ 
   return STATUS_OK;
 }
 

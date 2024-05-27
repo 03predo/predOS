@@ -49,18 +49,28 @@ int kernel_start(){
   _enable_interrupts();
 
   SYS_LOG("starting predOS");
-  SYS_LOG("CONTROL0: %#x, CONTROL1: %#x, CONTROL2: %#x, STATUS: %#x", EMMC->CONTROL0, EMMC->CONTROL1, EMMC->CONTROL2, EMMC->STATUS);
+  SYS_LOG("New Message");
   emmc_init();
-  emmc_block_t block;
-  emmc_read_block(0, &block);
-  emmc_print_block(block);
-  block.buf[0] = 0xa;
-  block.buf[1] = 0xb;
-  block.buf[2] = 0xc;
-  emmc_write_block(0, &block);
-  emmc_read_block(0, &block);
-  emmc_print_block(block);
+  /*
+  emmc_block_t block[2];
+  
+  emmc_read_block(0, 2, block);
+  SYS_LOG("block 0:");
+  emmc_print_block(block[0]);
+  SYS_LOG("block 1:");
+  emmc_print_block(block[1]);
 
+  block[0].buf[0] = 0x04030201;
+  block[1].buf[0] = 0x0d0c0b0a;
+  emmc_write_block(0, 2, block);
+  emmc_read_block(0, 2, block);
+  SYS_LOG("block 0:");
+  emmc_print_block(block[0]);
+  sys_timer_sleep(500000);
+  SYS_LOG("block 1:");
+  emmc_print_block(block[1]);
+
+  */
   gpio_pulse(LED_PIN, 2); 
   while(1){
     //gpio_pulse(LED_PIN, 5);

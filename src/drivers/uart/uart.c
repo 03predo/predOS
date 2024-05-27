@@ -9,8 +9,8 @@
 
 #define UART_TX_PIN GPIO14
 #define UART_RX_PIN GPIO15
-#define UART_TX_BUFFER_SIZE 10000
-#define UART_RX_BUFFER_SIZE 10000
+#define UART_TX_BUFFER_SIZE 1024
+#define UART_RX_BUFFER_SIZE 1024
 
 #define LED_PIN 16
 
@@ -19,6 +19,14 @@ typedef enum {
   IMAGE_HEADER,
   IMAGE_PAYLOAD
 } uart_state_t;
+
+typedef union {
+  struct {
+    uint16_t image_start_address;
+    uint32_t image_size;
+  } fields;
+  uint8_t raw[6];
+} uart_image_header;
 
 typedef struct {
   char tx_buf[UART_TX_BUFFER_SIZE];
@@ -33,7 +41,7 @@ typedef struct {
 
   uint32_t received_blocks;
   uint32_t received_bytes;
-  uint32_t image_size;
+  uart_image_header image_header;
   emmc_block_t block;
 } uart_driver;
 
@@ -85,10 +93,12 @@ status_t uart_handle_command(char* cmd, uint32_t len){
     SYS_LOG("ready to load image %d", ud.state);
     ud.received_blocks = 0;
     ud.received_bytes = 0;
-    ud.image_size = 0;
+    ud.image_header.fields.image_size = 0;
   }else if(len == 1 && cmd[0] == 'B'){
     emmc_block_t block;
-    emmc_read_block(0, &block);
+    SYS_LOG("reading block");
+    emmc_read_block(0, 1, &block);
+    sys_timer_sleep(1000000);
     emmc_print_block(block);
   }else{
     SYS_LOG("cmd: %s", cmd);
@@ -115,10 +125,11 @@ status_t uart_irq_handler(){
         }
         break;
       case IMAGE_HEADER:
-        ud.image_size += (c << (ud.received_bytes * 8));
+        ud.image_header.fields.image_size += (c << ((ud.received_bytes) * 8));
         ud.received_bytes++;
         if(ud.received_bytes >= 4){
-          SYS_LOG("image size is %d", ud.image_size);
+          SYS_LOG("image size is %d", ud.image_header.fields.image_size);
+          emmc_start_write(0, ud.image_header.fields.image_size);
           ud.received_bytes = 0;
           ud.state = IMAGE_PAYLOAD;
         }
@@ -126,16 +137,20 @@ status_t uart_irq_handler(){
       case IMAGE_PAYLOAD:
         ud.block.buf[ud.received_bytes] = c;
         ud.received_bytes++;
+        if((ud.received_bytes % 4) == 0){
+          uint32_t word = ud.block.buf[ud.received_bytes - 4];
+          word += ud.block.buf[ud.received_bytes - 3] << 8;
+          word += ud.block.buf[ud.received_bytes - 2] << 16;
+          word += ud.block.buf[ud.received_bytes - 1] << 24;
+          emmc_write_word(word);
+        }
         if(ud.received_bytes == EMMC_BLOCK_SIZE){
-          emmc_write_block(ud.received_blocks, &ud.block);
-          uart_print("\n", 1);
           ud.received_bytes = 0;
           ud.received_blocks++;
 
-          if(ud.received_blocks >= ud.image_size){
+          if(ud.received_blocks >= ud.image_header.fields.image_size){
             ud.state = STANDBY;
-            SYS_LOG("received image size of %d", ud.received_blocks);
-            
+            SYS_LOG("received image size of %d", ud.received_blocks); 
           }
         }
         break;
