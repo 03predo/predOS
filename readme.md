@@ -6,5 +6,5 @@ Need to create linker file to place small bootloader at 0x8000 which will setup 
 
 
 ```
-plink.exe -serial COM6 -sercfg 115200
+plink.exe -serial COM6 -sercfg 5000000
 ```
