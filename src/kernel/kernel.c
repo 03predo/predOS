@@ -49,7 +49,7 @@ int kernel_start(){
   _enable_interrupts();
 
   SYS_LOG("starting predOS");
-  SYS_LOG("New Message");
+  SYS_LOG("new message");
   emmc_init();
   /*
   emmc_block_t block[2];

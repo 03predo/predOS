@@ -36,12 +36,13 @@ The next step is to send the SD_SEND_OP_COND command (ACMD41), in the argument o
 This step is documented in the Physical Layer Spec 4.2.3. This step allows us to identify the card and assigns the card it's relative card address which is used in subsequent commands. First we send the ALL_SEND_CID command (CMD2), this will return the Card Identification Register(CID), which contains information about the card (manufacturer, product name, serial number).
 
 After this command we send the SEND_RELATIVE_ADDR command (CMD3) which will return the cards relative card address (RCA), the RCA is useful when you can have multiple cards accessed by the same host controller. The SEND_RELATIVE_ADDR command also transitions the card into the standby state which means it is ready for data transfers, this means we can set the clock frequency up to 25MHz which is the max frequency for microSDXC cards(ie. the card im using).
-
-
-
+### 8. Card Selection
+Once we have the RCA of the card we can send the SELECT_DESELECT_CARD command with the RCA as the argument to put our card into transfer mode.
 ## EMMC Data Transfer Procedure
-
-
+### Block Read
+To perform a block read we set fields in the Command/Transfer Block register to indicate a multi-block read of a given size. One of the fields gives us the option to automatically send then STOP_TRANSMISSION command (CMD12) once we have read the given amount of blocks. Once these values are written to the register we wait on the read ready interrupt and then read the 32bit words from the Data register.
+### Block Write
+To perform a block write we set fields in the Command/Transfer Block register to indicate a multi-block write of a given size with the automatic STOP_TRANSMISSION. Once these values are written to the register we wait on the write ready interrupt and then write the 32bit words to the Data register. Once we are done writing we check the data done interrupt to make sure the write is complete.
 ## References
 BCM2835 Peripheral Sheet
 ```
