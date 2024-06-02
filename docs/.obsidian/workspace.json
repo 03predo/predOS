@@ -4,19 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "10ec185bb7443156",
+        "id": "09a041821900ac9d",
         "type": "tabs",
         "children": [
           {
-            "id": "2e00df9e2e3cbcb3",
-            "type": "leaf",
-            "state": {
-              "type": "graph",
-              "state": {}
-            }
-          },
-          {
-            "id": "6c224922b2ccd234",
+            "id": "01c8aa1b3d6c182b",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -27,8 +19,7 @@
               }
             }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "vertical"
@@ -155,12 +146,24 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "6c224922b2ccd234",
+  "active": "5c3d56dcba0ad04f",
   "lastOpenFiles": [
-    "emmc.md",
-    "mmu.md",
+    "img/ARMv6/b4_9_4_domain_access_control.png",
     "mem_layout.canvas",
-    "debug_interface.md",
-    "Commands.md"
+    "img/ARMv6/b4_2_domain_access_values.png",
+    "mmu.md",
+    "img/ARMv6/b2_2_memory_attribute_summary.png",
+    "img/ARMv6/b4_1_mmu_access_permissions.png",
+    "img/ARMv6",
+    "img/ARMv6/b4_2_first_level_descriptor_format.png",
+    "img/ARMv6/b4_2_first_level_descriptor_format.png",
+    "emmc.md",
+    "img/ARMv6/b4_3_cb_tex_encodings.png",
+    "img/b4_2_section_descriptor.png",
+    "img/ARMv6/b4_4_section_translation.png",
+    "Pasted image 20240602113838.png",
+    "img",
+    "Commands.md",
+    "debug_interface.md"
   ]
 }
