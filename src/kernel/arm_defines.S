@@ -18,3 +18,8 @@
 .equ    DSCR_MONITOR_DEBUG_ENABLE,  0xf
 .equ    DSCR_MODE_SELECT,           0xe
 
+.equ    MMU_ENABLE,               (1 << 0)
+.equ    DATA_CACHE_ENABLE,        (1 << 2)
+.equ    INSTRUCTION_CACHE_ENABLE, (1 << 12)
+.equ    SUBPAGES_ENABLE,          (1 << 23)
+

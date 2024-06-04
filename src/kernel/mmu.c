@@ -1,7 +1,10 @@
 #include <stdint.h>
-#include "status.h"
+#include "sys_log.h"
+#include "mmu.h"
 
 #define PAGE_TABLE_SIZE 4096
+
+extern void _mmu_enable(uint32_t* page_table_base);
 
 typedef enum {
   FAULT = 0b00,
@@ -29,9 +32,11 @@ typedef union {
   uint32_t raw;
 } mmu_section_descriptor_t;
 
-static uint32_t page_table[PAGE_TABLE_SIZE];
+static uint32_t* page_table = (uint32_t*) 0x2000000;
 
 status_t mmu_init(){
+  SYS_LOG("sizeof descriptor: %d", sizeof(mmu_section_descriptor_t));
+  SYS_LOG("page_table: %#x", page_table);
   for(uint32_t i = 0; i < PAGE_TABLE_SIZE; ++i){
     page_table[i] = 0;
   }
@@ -52,30 +57,29 @@ status_t mmu_init(){
       .section_base_address = 0x000,
     }
   };
-
   page_table[0] = section.raw;
 
-  section = (mmu_section_descriptor_t) {
-    .fields = {
-      .descriptor_type = SECTION,
-      .bufferable = 1,
-      .cacheable = 0,
-      .execute_never = 1,
-      .domain = 0,
-      .access_permission = 0b11,
-      .type_extension = 0,
-      .access_permission_extension = 0,
-      .shareable = 0,
-      .not_global = 0,
-      .supersection = 0,
-      .section_base_address = 0x200,
-    }
-  };
-
-  page_table[0x200] = section;
-
-  mmu_enable(page_table);
+  for(uint32_t i = 0x200; i < PAGE_TABLE_SIZE; ++i){
+    section = (mmu_section_descriptor_t) {
+      .fields = {
+        .descriptor_type = SECTION,
+        .bufferable = 1,
+        .cacheable = 0,
+        .execute_never = 1,
+        .domain = 0,
+        .access_permission = 0b11,
+        .type_extension = 0,
+        .access_permission_extension = 0,
+        .shareable = 0,
+        .not_global = 0,
+        .supersection = 0,
+        .section_base_address = i,
+      }
+    };
+    page_table[i] = section.raw;
+  }
   
+  _mmu_enable(page_table);
   return STATUS_OK;
 }
 
