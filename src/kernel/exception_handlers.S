@@ -7,6 +7,7 @@
 .global _software_interrupt_handler
 
 _undefined_instruction_handler:
+  cpsie iaf
   mrs r0, spsr
   mov r1, lr
   b undefined_instruction_handler

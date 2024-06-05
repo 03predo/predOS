@@ -27,32 +27,38 @@ _fast_interrupt_vector:         .word fast_interrupt_handler
 
 _reset_handler:
   mov r0, #0x8000
-  mov r1, #0x0000 
-  // load vectors and constant addresses into registers, and store at 0x0000
+  ldr r1, =#0xffff0000
+
+  // load vectors and constant addresses into registers, and store at 0xFFFF0000
   ldmia r0!, {r2, r3, r4, r5, r6, r7, r8, r9}
   stmia r1!, {r2, r3, r4, r5, r6, r7, r8, r9}
   ldmia r0!, {r2, r3, r4, r5, r6, r7, r8, r9}
   stmia r1!, {r2, r3, r4, r5, r6, r7, r8, r9}
 
+  // enable high vectors
+  mrc p15, #0, r0, c1, c0, #0 
+  orr r0, r0, #(HIGH_VECTORS_ENABLE)
+  mcr p15, #0, r0, c1, c0, #0
+
   mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x7000
+  ldr sp, =0x10007000
 
   // set stack pointer to below text and data segment
   mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x6000
+  ldr sp, =0x10006000
   cpsie   i
 
   mov r0, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x5000
+  ldr sp, =0x10005000
   cpsie   i
 
   // set stack pointer to below text and data segment
   mov r0, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x4000
+  ldr sp, =0x10004000
   cpsie   i
 
 

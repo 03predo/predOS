@@ -86,11 +86,29 @@ status_t mmu_init(){
     _page_table[i] = section.raw;
   }
   
+  section = (mmu_section_descriptor_t) {
+      .fields = {
+        .descriptor_type = SECTION,
+        .bufferable = 1,
+        .cacheable = 1,
+        .execute_never = 0,
+        .domain = 0,
+        .access_permission = 0b11,
+        .type_extension = 0,
+        .access_permission_extension = 0,
+        .shareable = 0,
+        .not_global = 0,
+        .supersection = 0,
+        .section_base_address = 0xfff,
+      }
+    };
+  _page_table[0xfff] = section.raw;
+
   _mmu_enable(_page_table);
   return STATUS_OK;
 }
 
-status_t mmu_tmp(){
+status_t mmu_tmp(){   
   page_table[0] = 0;
   _mmu_invalidate_tlb();
   return STATUS_OK;

@@ -21,5 +21,6 @@
 .equ    MMU_ENABLE,               (1 << 0)
 .equ    DATA_CACHE_ENABLE,        (1 << 2)
 .equ    INSTRUCTION_CACHE_ENABLE, (1 << 12)
+.equ    HIGH_VECTORS_ENABLE,      (1 << 13)
 .equ    SUBPAGES_ENABLE,          (1 << 23)
 

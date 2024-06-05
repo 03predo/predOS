@@ -54,10 +54,12 @@ int kernel_start(){
   
   uint32_t ttbr0;
   GET_TTBR0(ttbr0);
-  SYS_LOG("ttbr0: %#x", ttbr0);
-  //uint32_t *page_table = (uint32_t*) 0x00100000;
-  //SYS_LOG("page_table: %#x", *page_table);
+  SYS_LOG("ttbr0: %#x");
+  mmu_tmp();
+  uint32_t *page_table = (uint32_t*) 0x00000000;
+  SYS_LOG("page_table: %#x", *page_table);
   while(1){
+  
     sys_timer_sleep(2000000);
   }
 
