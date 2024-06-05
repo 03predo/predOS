@@ -44,25 +44,22 @@ void setup_app_stack(){
 
 
 int kernel_start(){
+  mmu_section_descriptor_t section = {0};
+  mmu_set_descriptor(0, section);
+
   gpio_func(LED_PIN, GPIO_OUTPUT); 
 
   uart_init(3000000);
   _enable_interrupts();
 
   SYS_LOG("starting predOS");
+
   emmc_init();
   
-  uint32_t ttbr0;
-  GET_TTBR0(ttbr0);
-  SYS_LOG("ttbr0: %#x");
-  mmu_tmp();
-  uint32_t *page_table = (uint32_t*) 0x00000000;
-  SYS_LOG("page_table: %#x", *page_table);
-  while(1){
   
+  while(1){  
     sys_timer_sleep(2000000);
   }
-
 
   return 0;
 }

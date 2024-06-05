@@ -3,7 +3,6 @@
 #include "arm_defines.S"
 
 .global _start
-.global _enable_interrupts
 .global kernel_init
 
 _start:
@@ -87,13 +86,6 @@ _reset_handler:
 
   b kernel_init
 
-_enable_interrupts:
-  // clear bit 0x80 of the cpsr reg
-  mrs     r0, cpsr
-  bic     r0, r0, #0x80
-  msr     cpsr_c, r0
-  cpsie   i
-  mov     pc, lr
-
 _inf_loop:
   b _inf_loop
+

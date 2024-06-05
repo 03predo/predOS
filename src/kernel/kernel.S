@@ -3,6 +3,7 @@
 #include "arm_defines.S"
 
 .global _kernel_context_switch
+.global _enable_interrupts
 
 _kernel_context_switch:
   ldmia r0!, {r1, r2}
@@ -21,4 +22,14 @@ _kernel_context_switch:
 
   msr cpsr_c, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT)
   rfeia sp!
+
+_enable_interrupts:
+  // clear bit 0x80 of the cpsr reg
+  mrs     r0, cpsr
+  bic     r0, r0, #0x80
+  msr     cpsr_c, r0
+  cpsie   i
+  mov     pc, lr
+
+
 

@@ -36,6 +36,9 @@ void software_interrupt_handler(uint32_t sp){
 }
 
 void __attribute__((interrupt("ABORT"))) prefetch_abort_handler(void){
+  asm inline("cpsie i");
+  SYS_LOG("PREFETCH ABORT");
+
   while(1){
     gpio_pulse(LED_PIN, 3);
     sys_timer_sleep(1000000);
@@ -43,6 +46,8 @@ void __attribute__((interrupt("ABORT"))) prefetch_abort_handler(void){
 }
 
 void __attribute__((interrupt("ABORT"))) data_abort_handler(void){
+  asm inline("cpsie i");
+  SYS_LOG("DATA ABORT");
   while(1){
     gpio_pulse(LED_PIN, 4);
     sys_timer_sleep(1000000);

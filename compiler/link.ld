@@ -43,7 +43,7 @@ SECTIONS {
   }
 
   .page_table : 
-  ALIGN(0x4000)
+  ALIGN(0x8000)
   {
     *(.page_table)
   }
