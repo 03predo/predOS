@@ -19,7 +19,7 @@ _start:
 _reset_vector:                  .word _reset_handler
 _undefined_instruction_vector:  .word _undefined_instruction_handler
 _software_interrupt_vector:     .word _software_interrupt_handler
-_prefetch_abort_vector:         .word _prefetch_abort_handler
+_prefetch_abort_vector:         .word prefetch_abort_handler
 _data_abort_vector:             .word data_abort_handler
 _unused_vector:                 .word _reset_handler
 _interrupt_vector:              .word interrupt_handler

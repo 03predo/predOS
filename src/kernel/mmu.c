@@ -1,10 +1,17 @@
 #include <stdint.h>
 #include "sys_log.h"
 #include "mmu.h"
+#include "bcm2835.h"
+#include "util.h"
 
+#define KERNEL_VIRTUAL_OFFSET 0x10000000U
+#define PERIPHERAL_PHYSICAL_BASE 0x20000000
 #define PAGE_TABLE_SIZE 4096
 
 extern void _mmu_enable(uint32_t* page_table_base);
+extern void _mmu_set_ttbr0(uint32_t* page_table);
+extern void _mmu_invalidate_tlb();
+status_t mmu_init(void) __attribute__((section(".text.boot.kernel")));
 
 typedef enum {
   FAULT = 0b00,
@@ -32,13 +39,12 @@ typedef union {
   uint32_t raw;
 } mmu_section_descriptor_t;
 
-static uint32_t* page_table = (uint32_t*) 0x2000000;
+static uint32_t page_table[PAGE_TABLE_SIZE] __attribute__((section(".page_table")));
 
-status_t mmu_init(){
-  SYS_LOG("sizeof descriptor: %d", sizeof(mmu_section_descriptor_t));
-  SYS_LOG("page_table: %#x", page_table);
+status_t mmu_init(){ 
+  uint32_t* _page_table = (uint32_t*)(((uint32_t)page_table) - KERNEL_VIRTUAL_OFFSET);
   for(uint32_t i = 0; i < PAGE_TABLE_SIZE; ++i){
-    page_table[i] = 0;
+    _page_table[i] = 0;
   }
 
   mmu_section_descriptor_t section = {
@@ -57,9 +63,10 @@ status_t mmu_init(){
       .section_base_address = 0x000,
     }
   };
-  page_table[0] = section.raw;
+  _page_table[0] = section.raw;
+  _page_table[0x100] = section.raw;
 
-  for(uint32_t i = 0x200; i < PAGE_TABLE_SIZE; ++i){
+  for(uint32_t i = (PERIPHERAL_BASE >> 20); i < PAGE_TABLE_SIZE; ++i){
     section = (mmu_section_descriptor_t) {
       .fields = {
         .descriptor_type = SECTION,
@@ -73,13 +80,18 @@ status_t mmu_init(){
         .shareable = 0,
         .not_global = 0,
         .supersection = 0,
-        .section_base_address = i,
+        .section_base_address = ((PERIPHERAL_PHYSICAL_BASE >> 20) + i - (PERIPHERAL_BASE >> 20)),
       }
     };
-    page_table[i] = section.raw;
+    _page_table[i] = section.raw;
   }
   
-  _mmu_enable(page_table);
+  _mmu_enable(_page_table);
   return STATUS_OK;
 }
 
+status_t mmu_tmp(){
+  page_table[0] = 0;
+  _mmu_invalidate_tlb();
+  return STATUS_OK;
+}

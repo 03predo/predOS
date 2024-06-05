@@ -1,9 +1,10 @@
-.section ".text"
+.section ".text.boot"
 
 #include "arm_defines.S"
 
 .global _mmu_enable
 .global _mmu_disable
+.global _mmu_invalidate_tlb
 
 _mmu_enable:
   // set TTBR0 to r0
@@ -37,3 +38,9 @@ _mmu_disable:
   mcr p15, #0, r0, c1, c0, #0
   bx lr
 
+.section ".text"
+
+_mmu_invalidate_tlb:
+  mov r0, #0
+  mcr p15, #0, r0, c8, c7, #0
+  bx lr

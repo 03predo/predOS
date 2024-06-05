@@ -12,14 +12,12 @@ extern void _kernel_context_switch(uint32_t prev_stack_pointer);
 extern void _mmu_disable();
 
 void __attribute__((interrupt("UNDEF"))) undefined_instruction_handler(uint32_t spsr, uint32_t lr){
-  _mmu_disable();
   SYS_LOG("UNDEFINED INSTRUCTION");
   SYS_LOG("spsr: %#x, lr: %#x\n", spsr, lr); 
   while(1);
 }
 
 void software_interrupt_handler(uint32_t sp){
-  _mmu_disable();
   SYS_LOG("SOFTWARE INTERRUPT");
   SYS_LOG("prev: sp=%#x, lr=%#x, spsr=%#x", sp, *((uint32_t*)(sp + 4)), *((uint32_t*)sp));
   SYS_LOG("new: sp=%#x, lr=%#x, spsr=%#x", APP_STACK, *((uint32_t*)(APP_STACK + 1)), *(APP_STACK));
@@ -28,15 +26,17 @@ void software_interrupt_handler(uint32_t sp){
 }
 
 void __attribute__((interrupt("ABORT"))) prefetch_abort_handler(void){
-  _mmu_disable();
-  SYS_LOG("PREFETCH ABORT");
-  while(1);
+  while(1){
+    gpio_pulse(LED_PIN, 2);
+    sys_timer_sleep(1000000);
+  }
 }
 
 void __attribute__((interrupt("ABORT"))) data_abort_handler(void){
-  _mmu_disable();
-  SYS_LOG("DATA ABORT");
-  while(1);
+  while(1){
+    gpio_pulse(LED_PIN, 3);
+    sys_timer_sleep(1000000);
+  }
 }
 
 void __attribute__((interrupt("IRQ"))) interrupt_handler(void){

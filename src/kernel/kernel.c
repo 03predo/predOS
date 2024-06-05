@@ -44,7 +44,6 @@ void setup_app_stack(){
 
 
 int kernel_start(){
-
   gpio_func(LED_PIN, GPIO_OUTPUT); 
 
   uart_init(3000000);
@@ -53,12 +52,15 @@ int kernel_start(){
   SYS_LOG("starting predOS");
   emmc_init();
   
-  gpio_pulse(LED_PIN, 2); 
+  uint32_t ttbr0;
+  GET_TTBR0(ttbr0);
+  SYS_LOG("ttbr0: %#x", ttbr0);
+  //uint32_t *page_table = (uint32_t*) 0x00100000;
+  //SYS_LOG("page_table: %#x", *page_table);
   while(1){
-    //gpio_pulse(LED_PIN, 5);
-    SYS_LOG("hello world");
     sys_timer_sleep(2000000);
   }
+
 
   return 0;
 }
