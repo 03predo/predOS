@@ -14,11 +14,18 @@ KERNEL_VIRTUAL_ADDR = KERNEL_LOAD_ADDR + KERNEL_VIRTUAL_OFFSET; /* should eventu
 
 
 SECTIONS {
+  
+
   .boot BOOT_ADDR :
   {
     *(.text.boot)
     *(.text.boot.*)
   } 
+
+  .kernel_page_table 0x1c000 : 
+  {
+    *(.kernel_page_table)
+  }
 
   .kernel_text KERNEL_VIRTUAL_ADDR :
   AT( KERNEL_LOAD_ADDR )
@@ -40,13 +47,7 @@ SECTIONS {
     *(COMMON)
     __bss_end__ = .;
 
-  }
-
-  .page_table : 
-  ALIGN(0x8000)
-  {
-    *(.page_table)
-  }
+  } 
 
   _end = .; 
 }

@@ -44,9 +44,6 @@ void setup_app_stack(){
 
 
 int kernel_start(){
-  mmu_section_descriptor_t section = {0};
-  mmu_set_descriptor(0, section);
-
   gpio_func(LED_PIN, GPIO_OUTPUT); 
 
   uart_init(3000000);
@@ -55,7 +52,6 @@ int kernel_start(){
   SYS_LOG("starting predOS");
 
   emmc_init();
-  
   
   while(1){  
     sys_timer_sleep(2000000);

@@ -1,8 +1,8 @@
 {
 	"nodes":[
-		{"id":"1f445d2d0b41be2b","type":"text","text":"**0x00008000:** Boot code","x":-125,"y":-20,"width":365,"height":60},
-		{"id":"8e31be4089f766ce","type":"text","text":"**0x00010000:** Application Code (in TLB0)","x":-125,"y":-210,"width":365,"height":190},
-		{"id":"4e289b884d94f184","type":"text","text":"**0xC000000:** Kernel Code (in TLB1)","x":-125,"y":-320,"width":365,"height":110}
+		{"id":"8e31be4089f766ce","type":"text","text":"**0x00080000:** Application Code (in TLB0)","x":-125,"y":-210,"width":365,"height":150},
+		{"id":"4e289b884d94f184","type":"text","text":"**0xC000000:** Kernel Code (in TLB1)","x":-125,"y":-360,"width":365,"height":150},
+		{"id":"ff5f224df350ca57","x":-125,"y":-60,"width":365,"height":160,"type":"text","text":"**0x00000000:** Exception Vectors and User and Kernel First-Level Page Table. Each process will store its own second-level page table. Course page table descriptors in the first level page table will point to the page table of each process in memory"}
 	],
 	"edges":[]
 }

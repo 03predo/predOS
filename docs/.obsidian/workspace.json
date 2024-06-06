@@ -11,11 +11,14 @@
             "id": "01c8aa1b3d6c182b",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "canvas",
               "state": {
-                "file": "Commands.md",
-                "mode": "source",
-                "source": false
+                "file": "mem_layout.canvas",
+                "viewState": {
+                  "x": -46.58492098297607,
+                  "y": -141.91556058703975,
+                  "zoom": 0
+                }
               }
             }
           }
@@ -85,7 +88,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "Commands.md",
+                "file": "mem_layout.canvas",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -102,7 +105,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "Commands.md",
+                "file": "mem_layout.canvas",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -125,7 +128,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "Commands.md"
+                "file": "mem_layout.canvas"
               }
             }
           }
@@ -146,8 +149,9 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "5c3d56dcba0ad04f",
+  "active": "01c8aa1b3d6c182b",
   "lastOpenFiles": [
+    "Commands.md",
     "mmu.md",
     "img/ARMv6/b4_9_4_domain_access_control.png",
     "mem_layout.canvas",
@@ -163,7 +167,6 @@
     "img/ARMv6/b4_4_section_translation.png",
     "Pasted image 20240602113838.png",
     "img",
-    "Commands.md",
     "debug_interface.md"
   ]
 }

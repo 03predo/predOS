@@ -6,18 +6,18 @@
 
 #define KERNEL_VIRTUAL_OFFSET 0x10000000U
 #define PERIPHERAL_PHYSICAL_BASE 0x20000000
-#define PAGE_TABLE_SIZE 4096
+#define PAGE_TABLE_SIZE 1024
 
 extern void _mmu_enable(uint32_t* page_table_base);
 extern void _mmu_invalidate_tlb();
 status_t mmu_init(void) __attribute__((section(".text.boot.kernel")));
 
-static uint32_t page_table[PAGE_TABLE_SIZE] __attribute__((section(".page_table")));
+static uint32_t kernel_page_table[PAGE_TABLE_SIZE] __attribute__((section(".kernel_page_table")));
+//static uint32_t user_page_table[PAGE_TABLE_SIZE] __attribute__((section(".user_page_table")));
 
 status_t mmu_init(){ 
-  uint32_t* _page_table = (uint32_t*)(((uint32_t)page_table) - KERNEL_VIRTUAL_OFFSET);
   for(uint32_t i = 0; i < PAGE_TABLE_SIZE; ++i){
-    _page_table[i] = 0;
+    kernel_page_table[i] = 0;
   }
 
   mmu_section_descriptor_t section;
@@ -38,7 +38,7 @@ status_t mmu_init(){
         .section_base_address = ((PERIPHERAL_PHYSICAL_BASE >> 20) + i - (PERIPHERAL_BASE >> 20)),
       }
     };
-    _page_table[i] = section.raw;
+    kernel_page_table[i] = section.raw;
   }
 
   section = (mmu_section_descriptor_t) {
@@ -57,8 +57,8 @@ status_t mmu_init(){
       .section_base_address = 0x000,
     }
   };
-  _page_table[0] = section.raw;
-  _page_table[0x100] = section.raw;
+  kernel_page_table[0] = section.raw;
+  kernel_page_table[0x100] = section.raw;
   
   
   section = (mmu_section_descriptor_t) {
@@ -77,14 +77,14 @@ status_t mmu_init(){
         .section_base_address = 0xfff,
       }
     };
-  _page_table[0xfff] = section.raw;
+  kernel_page_table[0xfff] = section.raw;
 
-  _mmu_enable(_page_table);
+  _mmu_enable(kernel_page_table);
   return STATUS_OK;
 }
 
 status_t mmu_set_descriptor(uint16_t table_index, mmu_section_descriptor_t section){   
-  page_table[table_index] = section.raw;
+  kernel_page_table[table_index] = section.raw;
   _mmu_invalidate_tlb();
   return STATUS_OK;
 }
