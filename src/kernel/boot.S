@@ -36,23 +36,23 @@ _reset_handler:
 
   mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x10007000
+  ldr sp, =0x10107000
 
   // set stack pointer to below text and data segment
   mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x10006000
+  ldr sp, =0x10106000
   cpsie   i
 
   mov r0, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x10005000
+  ldr sp, =0x10105000
   cpsie   i
 
   // set stack pointer to below text and data segment
   mov r0, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x10004000
+  ldr sp, =0x10104000
   cpsie   i
 
 

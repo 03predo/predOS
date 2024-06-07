@@ -10,22 +10,14 @@ BOOTLOADER_SIZE = 0x800;
 BOOT_ADDR = 0x8000;
 KERNEL_LOAD_ADDR = BOOT_ADDR + BOOTLOADER_SIZE;
 KERNEL_VIRTUAL_OFFSET = 0x10000000;
-KERNEL_VIRTUAL_ADDR = KERNEL_LOAD_ADDR + KERNEL_VIRTUAL_OFFSET; /* should eventually be virtual ARM_SDRAM_SIZE - KERNEL_SIZE */
-
+KERNEL_VIRTUAL_ADDR = KERNEL_LOAD_ADDR + KERNEL_VIRTUAL_OFFSET;
 
 SECTIONS {
-  
-
   .boot BOOT_ADDR :
   {
     *(.text.boot)
     *(.text.boot.*)
-  } 
-
-  .kernel_page_table 0x1c000 : 
-  {
-    *(.kernel_page_table)
-  }
+  }  
 
   .kernel_text KERNEL_VIRTUAL_ADDR :
   AT( KERNEL_LOAD_ADDR )

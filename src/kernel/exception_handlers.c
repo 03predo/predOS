@@ -22,14 +22,15 @@ void __attribute__((interrupt("UNDEF"))) undefined_instruction_handler(uint32_t 
 }
 
 void software_interrupt_handler(uint32_t sp){
-  /*
+  asm inline ("cpsie i");
   SYS_LOG("SOFTWARE INTERRUPT");
+  /*
   SYS_LOG("prev: sp=%#x, lr=%#x, spsr=%#x", sp, *((uint32_t*)(sp + 4)), *((uint32_t*)sp));
   SYS_LOG("new: sp=%#x, lr=%#x, spsr=%#x", APP_STACK, *((uint32_t*)(APP_STACK + 1)), *(APP_STACK));
   _kernel_context_switch((uint32_t)APP_STACK); 
   */
   while(1){
-    gpio_pulse(LED_PIN, 2);
+    gpio_pulse(LED_PIN, 1);
     sys_timer_sleep(1000000);
   }
   while(1);

@@ -51,8 +51,12 @@ int kernel_start(){
 
   SYS_LOG("starting predOS");
 
-  emmc_init();
-  
+  //emmc_init();
+
+  uint32_t ttbr0 = 0x4000;
+  SET_TTBR0(ttbr0);
+  GET_TTBR0(ttbr0);
+  SYS_LOG("ttbr0: %#x");
   while(1){  
     sys_timer_sleep(2000000);
   }

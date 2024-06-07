@@ -11,14 +11,11 @@
             "id": "01c8aa1b3d6c182b",
             "type": "leaf",
             "state": {
-              "type": "canvas",
+              "type": "markdown",
               "state": {
-                "file": "mem_layout.canvas",
-                "viewState": {
-                  "x": -46.58492098297607,
-                  "y": -141.91556058703975,
-                  "zoom": 0
-                }
+                "file": "Commands.md",
+                "mode": "preview",
+                "source": false
               }
             }
           }
@@ -88,7 +85,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "mem_layout.canvas",
+                "file": "Commands.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -105,7 +102,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "mem_layout.canvas",
+                "file": "Commands.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -128,7 +125,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "mem_layout.canvas"
+                "file": "Commands.md"
               }
             }
           }
@@ -151,10 +148,10 @@
   },
   "active": "01c8aa1b3d6c182b",
   "lastOpenFiles": [
+    "mem_layout.canvas",
     "Commands.md",
     "mmu.md",
     "img/ARMv6/b4_9_4_domain_access_control.png",
-    "mem_layout.canvas",
     "img/ARMv6/b4_2_domain_access_values.png",
     "img/ARMv6/b2_2_memory_attribute_summary.png",
     "img/ARMv6/b4_1_mmu_access_permissions.png",
