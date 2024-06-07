@@ -61,28 +61,47 @@ status_t mmu_init(){
       .section_base_address = 0x000,
     }
   };
-  system_page_table[0x0] = section.raw;
   system_page_table[0x100] = section.raw;
 
   section.fields.section_base_address = 0x101;
   system_page_table[0x101] = section.raw; 
-
-  /*
+ 
   mmu_coarse_page_table_descriptor_t coarse_page_table = {
-    .descriptor_type = COARSE_PAGE_TABLE,
-    .domain = 0,
-    .coarse_page_table_addr = (kernel_coarse_page_table >> 10),
-  }
+    .fields = {
+      .descriptor_type = COARSE_PAGE_TABLE,
+      .domain = 0,
+      .coarse_page_table_addr = ((uint32_t)kernel_coarse_page_table >> 10),
+    }
+  };
   system_page_table[0x000] = coarse_page_table.raw;
-  */
+  
+  mmu_small_page_descriptor_t small_page = {
+    .fields = {
+      .descriptor_type = SMALL_PAGE_EXECUTABLE,
+      .bufferable = 1,
+      .cacheable = 1,
+      .access_permission = 0b11,
+      .access_permission_extension = 0,
+      .shareable  = 0,
+      .not_global = 0,
+      .small_page_addr = 0x0,
+    }
+  };
 
+  kernel_coarse_page_table[0x0] = small_page.raw;
+
+  small_page.fields.small_page_addr = 0x4;
+  kernel_coarse_page_table[0x4] = small_page.raw;
+
+  small_page.fields.small_page_addr = 0x8;
+  kernel_coarse_page_table[0x8] = small_page.raw;
 
   _mmu_enable(system_page_table);
   return STATUS_OK;
 }
 
-status_t mmu_set_descriptor(uint16_t table_index, mmu_section_descriptor_t section){   
-  system_page_table[table_index] = section.raw;
+status_t mmu_set_descriptor(){
+  kernel_coarse_page_table[0x8] = 0;
   _mmu_invalidate_tlb();
   return STATUS_OK;
 }

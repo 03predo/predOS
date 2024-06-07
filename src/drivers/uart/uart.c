@@ -81,6 +81,7 @@ status_t uart_init(uint32_t baudrate){
   IRQ_CONTROLLER->ENABLE_IRQ1 = (1 << 29);
 
   ud.state = STANDBY;
+  printf("\n");
   return STATUS_OK;
 }
 

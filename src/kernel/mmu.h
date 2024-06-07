@@ -53,8 +53,10 @@ typedef union {
     uint32_t access_permission_extension : 1;
     uint32_t shareable : 1;
     uint32_t not_global : 1;
+    uint32_t small_page_addr : 20;
   } fields;
+  uint32_t raw;
 } mmu_small_page_descriptor_t;
 
 status_t mmu_init();
-status_t mmu_set_descriptor(uint16_t table_index, mmu_section_descriptor_t section);
+status_t mmu_set_descriptor();
