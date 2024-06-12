@@ -44,9 +44,7 @@ void setup_app_stack(){
 
 
 int kernel_start(){
-  mmu_set_descriptor();
   gpio_func(LED_PIN, GPIO_OUTPUT); 
-
   uart_init(3000000);
   _enable_interrupts();
 

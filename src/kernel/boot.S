@@ -28,34 +28,45 @@ _reset_handler:
   mov r0, #0x8000
   mov r1, #0x0000
 
-  // load vectors and constant addresses into registers, and store at 0xFFFF0000
+  // load vectors and constant addresses into registers, and store at 0x0000
   ldmia r0!, {r2, r3, r4, r5, r6, r7, r8, r9}
   stmia r1!, {r2, r3, r4, r5, r6, r7, r8, r9}
   ldmia r0!, {r2, r3, r4, r5, r6, r7, r8, r9}
   stmia r1!, {r2, r3, r4, r5, r6, r7, r8, r9}
+
+  // set stack pointers
+  mov r0, #(CPSR_MODE_FIQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+  msr cpsr_c, r0
+  ldr sp, =FIQ_STACK_ADDR
 
   mov r0, #(CPSR_MODE_IRQ | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x10107000
+  ldr sp, =IRQ_STACK_ADDR
 
-  // set stack pointer to below text and data segment
   mov r0, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x10106000
+  ldr sp, =SVR_STACK_ADDR
   cpsie   i
 
   mov r0, #(CPSR_MODE_ABORT | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x10105000
+  ldr sp, =ABORT_STACK_ADDR
   cpsie   i
 
-  // set stack pointer to below text and data segment
+  mov r0, #(CPSR_MODE_HYPERVISOR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+  msr cpsr_c, r0
+  ldr sp, =HYPERVISOR_STACK_ADDR
+  cpsie   i
+
+  mov r0, #(CPSR_MODE_UNDEFINED | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
+  msr cpsr_c, r0
+  ldr sp, =UNDEFINED_STACK_ADDR
+  cpsie   i
+
   mov r0, #(CPSR_MODE_SYSTEM | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT )
   msr cpsr_c, r0
-  ldr sp, =0x10104000
+  ldr sp, =SYSTEM_STACK_ADDR
   cpsie   i
-
-
 
   // r1 = Access Control Register
   mrc p15, #0, r1, c1, c0, #2
