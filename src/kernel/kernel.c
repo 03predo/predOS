@@ -10,6 +10,8 @@
 #include "example/example.h"
 #include "bcm2835.h"
 #include "emmc.h"
+#include "mmu.h"
+#include "util.h"
 
 #define LED_PIN 16
 
@@ -42,38 +44,15 @@ void setup_app_stack(){
 
 
 int kernel_start(){
-
   gpio_func(LED_PIN, GPIO_OUTPUT); 
-
   uart_init(3000000);
   _enable_interrupts();
 
   SYS_LOG("starting predOS");
-  SYS_LOG("new message");
+
   emmc_init();
-  /*
-  emmc_block_t block[2];
-  
-  emmc_read_block(0, 2, block);
-  SYS_LOG("block 0:");
-  emmc_print_block(block[0]);
-  SYS_LOG("block 1:");
-  emmc_print_block(block[1]);
-
-  block[0].buf[0] = 0x04030201;
-  block[1].buf[0] = 0x0d0c0b0a;
-  emmc_write_block(0, 2, block);
-  emmc_read_block(0, 2, block);
-  SYS_LOG("block 0:");
-  emmc_print_block(block[0]);
-  sys_timer_sleep(500000);
-  SYS_LOG("block 1:");
-  emmc_print_block(block[1]);
-
-  */
-  gpio_pulse(LED_PIN, 2); 
-  while(1){
-    //gpio_pulse(LED_PIN, 5);
+  while(1){  
+    gpio_pulse(LED_PIN, 10);
     sys_timer_sleep(2000000);
   }
 
@@ -86,6 +65,8 @@ int kernel_init(void)
   int* bss_end = &__bss_end__;
 
   while(bss < bss_end) *bss++ = 0;
+
+  mmu_init();
 
   kernel_start();
 

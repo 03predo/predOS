@@ -18,3 +18,17 @@
 .equ    DSCR_MONITOR_DEBUG_ENABLE,  0xf
 .equ    DSCR_MODE_SELECT,           0xe
 
+.equ    MMU_ENABLE,               (1 << 0)
+.equ    DATA_CACHE_ENABLE,        (1 << 2)
+.equ    INSTRUCTION_CACHE_ENABLE, (1 << 12)
+.equ    HIGH_VECTORS_ENABLE,      (1 << 13)
+.equ    SUBPAGES_ENABLE,          (1 << 23)
+
+.equ    FIQ_STACK_ADDR,         0x20000000
+.equ    IRQ_STACK_ADDR,         0x1fffc000
+.equ    SVR_STACK_ADDR,         0x1fff8000
+.equ    ABORT_STACK_ADDR,       0x1fff4000
+.equ    HYPERVISOR_STACK_ADDR,  0x1fff0000
+.equ    UNDEFINED_STACK_ADDR,   0x1ffec000
+.equ    SYSTEM_STACK_ADDR,      0x1ffe8000
+
