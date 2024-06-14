@@ -29,6 +29,14 @@ So whenever a memory region is accessed the domain is checked to see what access
 - The nG bit indicates if the memory region is not-global. If the bit is 0 the section will not be associated with a process when in the TLB, and if the bit is 1 it will be associated with the current process (indicated by the current ASID in the Process ID register) when in the TLB.
 - The XN bit stands for execute-never and determines if the region is executable (0) or not-executable (1)
 -  The IMP bit is not supported by the raspberry pi 1 B+ processor (ARM 1176JZF)
+
+## Multi-Level Page Table
+Multi-level page tables use the coarse page table descriptor to point to the location of a coarse page table. The entries in this coarse page table are either small or large page descriptors which describe the attributes of a 4kB and 16kB region of memory respectively.
+![[b4_2_first_level_descriptor_format.png]]
+![[b4_4_second_level_descriptor_format.png]]
+The second level descriptors are obtained from the virtual address and Translation Table Base register as shown in the below diagram.
+![[b5_4_accessing_second_level_descriptors.png]]
+
 ## Enabling the MMU
 Perform the following step to enable the MMU
 1. Setup the page table in memory and write the base address to the Translation Table Base Register (TTBR). There are two TTBRs, the Translation Table Base Control (TTBC) register determines which one is used on a given memory access. The value in TTBC is a 3 bits wide and is name N. If N is 0 then we always use TTBR0, If N > 0 then if the bits \[31:32-N] of the virtual address are 1 then we use TTBR1 otherwise we use TTBR0. So TTBC should be set based to indicate which addresses will use which TTBR. TTBR0 and TTB1 must be set with their corresponding page table base addresses.
