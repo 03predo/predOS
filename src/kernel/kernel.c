@@ -1,5 +1,8 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <fcntl.h>
+
+#include "log_level.h"
 
 #include "kernel.h"
 #include "sys_log.h"
@@ -12,6 +15,7 @@
 #include "emmc.h"
 #include "mmu.h"
 #include "util.h"
+#include "fat.h"
 
 #define LED_PIN 16
 
@@ -48,9 +52,15 @@ int kernel_start(){
   uart_init(3000000);
   _enable_interrupts();
 
-  SYS_LOG("starting predOS");
+  SYS_LOGV("starting predOS");
+  fat_init();
 
-  emmc_init();
+  fat_directory_entry_t dir_entry;
+  if(fat_get_dir_entry("kernel.img", &dir_entry) != STATUS_OK){
+    SYS_LOGV("file not found");
+  }
+  fat_print_entry(dir_entry);
+  fat_read_block(&dir_entry, 0);
   while(1){  
     gpio_pulse(LED_PIN, 10);
     sys_timer_sleep(2000000);

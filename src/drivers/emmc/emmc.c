@@ -159,10 +159,10 @@ status_t emmc_reset_host_circuit(){
   //check to make sure reset occured
   c1.raw = EMMC->CONTROL1;
   if(c1.fields.reset_host_circuit != 0){
-    SYS_LOG("failed to reset properly"); 
+    SYS_LOGE("failed to reset properly"); 
     return STATUS_ERR;
   }
-  SYS_LOG("reset successful");
+  SYS_LOGD("reset successful");
 
   return STATUS_OK;
 }
@@ -174,7 +174,7 @@ status_t emmc_set_clock(uint32_t frequency_hz){
   // on reset all cards are set to 400kHz frequence (Physical Layer Spec 4.2.1)
   
   if(frequency_hz > BASE_CLOCK_FREQ){
-    SYS_LOG("invalid clock freq: %d", frequency_hz);
+    SYS_LOGE("invalid clock freq: %d", frequency_hz);
     return STATUS_ERR;
   }
 
@@ -192,10 +192,10 @@ status_t emmc_set_clock(uint32_t frequency_hz){
   // check to make sure clock stabilized with new settings
   c1.raw = EMMC->CONTROL1;
   if(c1.fields.clk_stable == 0){
-    SYS_LOG("clock failed to stabilize");
+    SYS_LOGE("clock failed to stabilize");
     return STATUS_ERR;
   }
-  SYS_LOG("clock stabilized");
+  SYS_LOGD("clock stabilized");
 
   // enable SD clock
   c1.fields.clk_enable = 1; 
@@ -217,7 +217,7 @@ status_t emmc_issue_command(emmc_command_t command, emmc_transfer_mode_t transfe
 
   // this needs to be improved to account for diff commands (reads/writes)
   if(!(EMMC->INTERRUPT & 0x1)){
-    SYS_LOG("int: %#8x", EMMC->INTERRUPT);
+    SYS_LOGE("int: %#8x", EMMC->INTERRUPT);
     return STATUS_ERR;
   }
 
@@ -269,9 +269,6 @@ status_t emmc_read_block(uint32_t start_block_address, uint16_t num_blocks, emmc
       block[i].buf[j] = EMMC->DATA;    
     }
   }
-
-  SYS_LOG("read complete, read %d block(s)", num_blocks); 
-
   return STATUS_OK;
 }
 
@@ -305,11 +302,9 @@ status_t emmc_finish_write(){
   }
 
   if(!interrupt.fields.data_done){
-    SYS_LOG("data not done");
+    SYS_LOGE("data not done");
     return STATUS_ERR;
   }
-
-  SYS_LOG("write complete");
 }
 
 status_t emmc_write_block(uint32_t start_block_address, uint16_t num_blocks, emmc_block_t block[]){
@@ -344,7 +339,8 @@ status_t emmc_init(void){
   emmc_status_t status;
   status.raw = EMMC->STATUS;
   if(status.fields.card_inserted == 0){
-    SYS_LOG("no card insterted");
+    SYS_LOGE("no card insterted");
+    return STATUS_ERR;
   }
  
   if(emmc_set_clock(IDENTIFICATION_MODE_CLOCK_FREQ) != STATUS_OK) return STATUS_ERR; 
@@ -367,7 +363,7 @@ status_t emmc_init(void){
   arg.argument1 = send_if_cond_arg.raw;
   if(emmc_send_command(SEND_IF_COND, arg, &resp) != STATUS_OK) return STATUS_ERR;
   if(resp.response0 != arg.argument1){
-    SYS_LOG("SEND_IF_COND failed: arg1: %#x, resp0: %#x", arg.argument1, resp.response0);
+    SYS_LOGE("SEND_IF_COND failed: arg1: %#x, resp0: %#x", arg.argument1, resp.response0);
     return STATUS_ERR;
   }
   
@@ -387,11 +383,11 @@ status_t emmc_init(void){
   }
 
   if(!(ocr.fields.card_power_up_status)){
-    SYS_LOG("card failed to finish power up");
+    SYS_LOGE("card failed to finish power up");
     return STATUS_ERR;
   }
 
-  if(ocr.fields.card_capacity_status) SYS_LOG("card is SDHC or SDXC");
+  if(ocr.fields.card_capacity_status) SYS_LOGD("card is SDHC or SDXC");
 
   // get the card identification register
   arg.argument1 = 0;
@@ -403,7 +399,7 @@ status_t emmc_init(void){
   cid.raw[1] = resp.response1;
   cid.raw[2] = resp.response2;
   cid.raw[3] = resp.response3;
-  SYS_LOG("MID: %#x, OID: %c%c, PNM: %c%c%c%c%c", 
+  SYS_LOGD("MID: %#x, OID: %c%c, PNM: %c%c%c%c%c", 
           cid.fields.manufacturer_id,
           cid.fields.oem_id[1], cid.fields.oem_id[0],
           cid.fields.product_name[4], cid.fields.product_name[3], cid.fields.product_name[2],
@@ -416,7 +412,7 @@ status_t emmc_init(void){
  
   emmc_card_status_t card_status = {0};
   card_status.raw = resp.response0;  
-  SYS_LOG("RCA: %#x, current_state: %#x, error: %#x", card_status.fields.relative_card_address, card_status.fields.current_state, card_status.fields.error);
+  SYS_LOGD("RCA: %#x, current_state: %#x, error: %#x", card_status.fields.relative_card_address, card_status.fields.current_state, card_status.fields.error);
 
   emmc_state.relative_card_address = card_status.fields.relative_card_address;
 
