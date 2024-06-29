@@ -1,6 +1,7 @@
 #pragma once
 
 #include "status.h"
+#include "emmc.h"
 
 #define FAT_DIR_ENTRY_NAME_LEN 11
 
@@ -135,4 +136,7 @@ typedef struct {
 status_t fat_init();
 status_t fat_get_dir_entry(const char* file_name, fat_directory_entry_t* dir_entry);
 status_t fat_print_entry(fat_directory_entry_t entry);
-status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block);
+status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_number, emmc_block_t* block);
+status_t fat_write_block(fat_directory_entry_t* dir_entry, uint32_t file_block_number, emmc_block_t* block);
+status_t fat_create_file(const char* file_name);
+
