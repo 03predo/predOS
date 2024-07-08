@@ -57,3 +57,7 @@ int _write(int file, char *ptr, int len){
   return len;
 }
 
+int _open(const char *pathname, int flags){
+  return -1;
+}
+

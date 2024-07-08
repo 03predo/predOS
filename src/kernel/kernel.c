@@ -1,5 +1,9 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <fcntl.h>
+#include <string.h>
+
+#include "log_level.h"
 
 #include "kernel.h"
 #include "sys_log.h"
@@ -12,6 +16,7 @@
 #include "emmc.h"
 #include "mmu.h"
 #include "util.h"
+#include "fat.h"
 
 #define LED_PIN 16
 
@@ -42,16 +47,34 @@ void setup_app_stack(){
 
 }
 
-
 int kernel_start(){
   gpio_func(LED_PIN, GPIO_OUTPUT); 
   uart_init(3000000);
   _enable_interrupts();
 
-  SYS_LOG("starting predOS");
+  SYS_LOGV("starting predOS");
+  fat_init();
 
-  emmc_init();
-  while(1){  
+  
+  if(fat_create_file("log.txt") != STATUS_OK){
+    SYS_LOGV("failed to create file");
+    return -1;
+  }
+  
+  uint8_t write_buf[] = "hello\n";
+  if(fat_write_file("log.txt", write_buf, sizeof(write_buf)) == STATUS_OK){
+    fat_directory_entry_t dir_entry;
+    fat_get_dir_entry("log.txt", &dir_entry);
+    fat_print_entry(dir_entry);
+
+    uint8_t read_buf[7];
+    fat_read_file("log.txt", read_buf, 7);
+    SYS_LOGD("read_buf: %s", read_buf);
+  }else{
+    SYS_LOGV("file not found");
+  }
+  
+  while(1){
     gpio_pulse(LED_PIN, 10);
     sys_timer_sleep(2000000);
   }

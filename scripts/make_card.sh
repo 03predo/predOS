@@ -29,8 +29,8 @@ done
 
 disk_image=${imgdir}/predOS.img
 
-tmpcardimg=$(mktemp)
-tmpcardpart=$(mktemp)
+tmpcardimg=${imgdir}/mbr
+tmpcardpart=${imgdir}/fat
 tmpcfg=$(mktemp)
 
 # We generate a dummy file the same size as the disk size. We could just generate a file that has the same size as
@@ -136,6 +136,6 @@ mcopy -v -i ${tmpcardpart} ${tmpcfg}                                            
 dd bs=512 if="${tmpcardimg}" of="${disk_image}" count=2048
 cat ${tmpcardpart} >> "${disk_image}"
 
-rm -f ${tmpcardpart}
-rm -f ${tmpcardimg}
+# rm -f ${tmpcardpart}
+# rm -f ${tmpcardimg}
 rm -f ${tmpcfg}
