@@ -141,4 +141,6 @@ status_t fat_write_block(fat_directory_entry_t* dir_entry, uint32_t file_block_n
 status_t fat_write_file(const char* file_name, uint8_t* buf, uint32_t size);
 status_t fat_read_file(const char* file_name, uint8_t* buf, uint32_t size);
 status_t fat_create_file(const char* file_name);
+status_t fat_open_file(const char* file_name, int flags, int* fd);
+status_t fat_close_file(int fd);
 

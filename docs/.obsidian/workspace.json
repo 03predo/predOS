@@ -30,18 +30,6 @@
                 "source": false
               }
             }
-          },
-          {
-            "id": "257611c95c643dfd",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Untitled.md",
-                "mode": "source",
-                "source": false
-              }
-            }
           }
         ],
         "currentTab": 1
@@ -173,9 +161,9 @@
   },
   "active": "aa2f62d0364e6bd1",
   "lastOpenFiles": [
+    "file_system.md",
     "Untitled.md",
     "Commands.md",
-    "file_system.md",
     "mmu.md",
     "img/ARMv6/b5_4_accessing_second_level_descriptors.png",
     "img/ARMv6/b4_9_4_domain_access_control.png",

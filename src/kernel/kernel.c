@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "log_level.h"
 
@@ -52,32 +54,23 @@ int kernel_start(){
   uart_init(3000000);
   _enable_interrupts();
 
-  SYS_LOGV("starting predOS");
   fat_init();
 
-  
-  if(fat_create_file("log.txt") != STATUS_OK){
-    SYS_LOGV("failed to create file");
-    return -1;
-  }
-  
-  uint8_t write_buf[] = "hello\n";
-  if(fat_write_file("log.txt", write_buf, sizeof(write_buf)) == STATUS_OK){
-    fat_directory_entry_t dir_entry;
-    fat_get_dir_entry("log.txt", &dir_entry);
-    fat_print_entry(dir_entry);
+  SYS_LOGV("starting predOS");
 
-    uint8_t read_buf[7];
-    fat_read_file("log.txt", read_buf, 7);
-    SYS_LOGD("read_buf: %s", read_buf);
-  }else{
-    SYS_LOGV("file not found");
-  }
+  int fd = open("config.txt", O_RDWR);
+  SYS_LOGV("fd: %d", fd);
   
-  while(1){
-    gpio_pulse(LED_PIN, 10);
-    sys_timer_sleep(2000000);
-  }
+  fd = open("log.txt", O_RDWR);
+  SYS_LOGV("fd: %d", fd);
+
+  fd = open("log.txt", O_RDWR | O_CREAT);
+  SYS_LOGV("fd: %d", fd);
+
+  close(0);
+  fd = open("log.txt", O_RDWR);
+  SYS_LOGV("fd: %d", fd);
+
 
   return 0;
 }

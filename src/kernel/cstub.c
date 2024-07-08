@@ -6,6 +6,8 @@ extern int errno;
 #include <sys/times.h>
 
 #include "uart.h"
+#include "sys_log.h"
+#include "fat.h"
 
 char *__env[1] = {0};
 char **environ = __env;
@@ -16,6 +18,9 @@ void _exit(int status){
 }
 
 int _close(int file){
+  if(fat_close_file(file) == STATUS_OK){
+    return 0;
+  }
   return -1;
 }
 
@@ -58,6 +63,8 @@ int _write(int file, char *ptr, int len){
 }
 
 int _open(const char *pathname, int flags){
-  return -1;
+  int fd = -1;
+  fat_open_file(pathname, flags, &fd); 
+  return fd;
 }
 

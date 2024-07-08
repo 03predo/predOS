@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
+#include <fcntl.h>
 
 #include "fat.h"
 #include "sys_log.h"
@@ -25,8 +26,10 @@
 #define ATTR_LONG_NAME (ATTR_READ_ONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUME_ID)
 
 #define MAX_FILE_NAME_LEN 12
+#define MAX_OPEN_FILES 256
 
 static file_allocation_table_t fat;
+static fat_directory_entry_t system_file_table[MAX_OPEN_FILES];
 
 status_t fat_print_entry(fat_directory_entry_t entry){
   char name[FAT_DIR_ENTRY_NAME_LEN + 1]; // +1 for '\0'
@@ -196,6 +199,10 @@ status_t fat_init(){
   SYS_LOGV("fat init done");
 
   fat_print_bpb();
+
+  for(uint32_t i = 0; i < MAX_OPEN_FILES; ++i){
+    system_file_table[i].name[0] = 0;
+  }
   return STATUS_OK;
 }
 
@@ -432,6 +439,48 @@ status_t fat_read_file(const char* file_name, uint8_t* buf, uint32_t size){
     memcpy(&buf[i*EMMC_BLOCK_SIZE], block.buf, EMMC_BLOCK_SIZE);
   }
 
+  return STATUS_OK;
+}
+
+status_t fat_open_file(const char* file_name, int flags, int* fd){
+  fat_directory_entry_t* dir_entry = NULL;
+  for(uint32_t i = 0; i < MAX_OPEN_FILES; ++i){
+    if(system_file_table[i].name[0] == 0){
+      SYS_LOGV("found free file descriptor: %d", i);
+      dir_entry = &system_file_table[i];
+      *fd = i;
+      break;
+    }
+  }
+  
+  if(dir_entry == NULL){
+    SYS_LOGV("no free file descriptors found");
+    *fd = -1;
+    return STATUS_ERR;
+  }
+
+  if(fat_get_dir_entry(file_name, dir_entry) == STATUS_OK) return STATUS_OK;
+
+  if((flags & O_CREAT) != 0){
+    if(fat_create_file(file_name) != STATUS_OK){
+      SYS_LOGE("failed to create file");
+      memset(&system_file_table[*fd], 0, sizeof(fat_directory_entry_t));
+      *fd = -1;
+
+    }
+    return STATUS_OK;
+  }
+  SYS_LOGE("file %s doesn't exist and O_CREAT not set", file_name);
+  memset(&system_file_table[*fd], 0, sizeof(fat_directory_entry_t));
+  *fd = -1;
+  return STATUS_ERR;
+}
+
+status_t fat_close_file(int fd){
+  if(fd >= MAX_OPEN_FILES){
+    return STATUS_ERR;
+  }
+  memset(&system_file_table[fd], 0, sizeof(fat_directory_entry_t));
   return STATUS_OK;
 }
 
