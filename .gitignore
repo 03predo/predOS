@@ -2,4 +2,6 @@ firmware/
 compiler/gcc-arm-9.2-2019.12-x86_64-arm-none-eabi/
 compiler/.compiler*
 build/
+build_test/
+Testing/
 
