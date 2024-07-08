@@ -258,6 +258,40 @@ status_t fat_get_dir_entry(const char* file_name, fat_directory_entry_t* dir_ent
   return STATUS_ERR;
 }
 
+status_t fat_set_dir_entry(const char* file_name, fat_directory_entry_t* dir_entry){
+  if(strlen(file_name) > MAX_FILE_NAME_LEN){
+    SYS_LOGE("file name is too long: %s", file_name);
+    return STATUS_ERR;
+  }
+
+  char dir_entry_name[FAT_DIR_ENTRY_NAME_LEN + 1];
+  STATUS_OK_OR_RETURN(fat_convert_file_name(file_name, dir_entry));
+  memcpy(dir_entry_name, dir_entry, FAT_DIR_ENTRY_NAME_LEN);
+  dir_entry_name[FAT_DIR_ENTRY_NAME_LEN] = '\0';
+
+  bios_parameter_block_t bpb = fat.bs16.fields.bpb;
+  uint32_t root_dir_sector_count = ((bpb.root_entry_count * sizeof(fat_directory_entry_t)) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
+  
+  emmc_block_t block;
+  fat_directory_entry_t search_dir_entry;
+  for(uint32_t i = 0; i < root_dir_sector_count; ++i){
+    emmc_read_block(fat.partition_base_sector + fat.root_dir_base_sector + i, 1, &block);
+    uint8_t* block_buf = (uint8_t*)block.buf;
+    for(uint32_t j = 0; j < (EMMC_BLOCK_SIZE / sizeof(fat_directory_entry_t)); ++j){
+      memcpy(&search_dir_entry, block_buf + (j * (sizeof(fat_directory_entry_t))), sizeof(fat_directory_entry_t));
+      if(search_dir_entry.name[0] != 0x00 && search_dir_entry.name[0] != 0xe5){
+        if(strncmp(search_dir_entry.name, dir_entry_name, FAT_DIR_ENTRY_NAME_LEN) == 0){ 
+          memcpy(block_buf + (j * (sizeof(fat_directory_entry_t))), dir_entry, sizeof(fat_directory_entry_t));
+          emmc_write_block(fat.partition_base_sector + fat.root_dir_base_sector + i, 1, &block);
+          return STATUS_OK;
+        }
+      }
+    }
+  }
+
+  return STATUS_ERR;
+}
+
 status_t fat_find_free_cluster(fat_directory_entry_t* dir_entry){
   bios_parameter_block_t bpb = fat.bs16.fields.bpb;
   emmc_block_t block;
@@ -270,7 +304,6 @@ status_t fat_find_free_cluster(fat_directory_entry_t* dir_entry){
         SYS_LOGV("free cluster: %d", dir_entry->first_cluster_low);
         fat_block[j] = 0xffff;
         emmc_write_block(fat.partition_base_sector + fat.fat_base_sector + i, 1, &block);
-        emmc_print_block(block);
         return STATUS_OK;
       }
     }
@@ -284,20 +317,9 @@ status_t fat_create_file(const char* file_name){
   fat_directory_entry_t dir_entry = {0};
   STATUS_OK_OR_RETURN(fat_convert_file_name(file_name, &dir_entry));
 
-
-  dir_entry.file_size = 32;
-  dir_entry.attribute = 0x20;
-  dir_entry.creation_date.day = 1;
-  dir_entry.creation_date.month = 1;
-  dir_entry.creation_date.year = 1;
-  dir_entry.creation_time.two_seconds = 1;
-  dir_entry.creation_time.minutes = 1;
-  dir_entry.creation_time.hours = 1;
-
-  dir_entry.last_access_date = dir_entry.creation_date;
-  dir_entry.last_write_date = dir_entry.creation_date;
-  dir_entry.last_write_time = dir_entry.creation_time;
-  dir_entry.reserved0 = 0x18;
+  dir_entry.file_size = 0;
+  dir_entry.attribute = ATTR_ARCHIVE;
+  dir_entry.reserved0 = 0x18; // indicates lowercase filename
 
   bios_parameter_block_t bpb = fat.bs16.fields.bpb;
   uint32_t root_dir_sector_count = ((bpb.root_entry_count * sizeof(fat_directory_entry_t)) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector; 
@@ -314,8 +336,7 @@ status_t fat_create_file(const char* file_name){
       memcpy(&search_dir_entry, block_buf + (j * (sizeof(fat_directory_entry_t))), sizeof(fat_directory_entry_t));
       if(search_dir_entry.name[0] == 0x00 || search_dir_entry.name[0] == 0xe5){
         memcpy(block_buf + (j * (sizeof(fat_directory_entry_t))), &dir_entry, sizeof(fat_directory_entry_t));
-        fat_print_entry(dir_entry);
-        emmc_write_block(fat.partition_base_sector + fat.root_dir_base_sector + i, 1, &block);
+        STATUS_OK_OR_RETURN(emmc_write_block(fat.partition_base_sector + fat.root_dir_base_sector + i, 1, &block));
         return STATUS_OK;
       }
     }
@@ -376,6 +397,41 @@ status_t fat_write_block(fat_directory_entry_t* dir_entry, uint32_t file_block_n
   SYS_LOGV("absolute sector: %#x", absolute_sector);
 
   STATUS_OK_OR_RETURN(emmc_write_block(absolute_sector, 1, block));
+  return STATUS_OK;
+}
+
+status_t fat_write_file(const char* file_name, uint8_t* buf, uint32_t size){
+  fat_directory_entry_t dir_entry;
+  STATUS_OK_OR_RETURN(fat_get_dir_entry(file_name, &dir_entry));
+
+  dir_entry.file_size = size;
+  emmc_block_t block;
+  memset(block.buf, 0, EMMC_BLOCK_SIZE);
+  uint32_t num_extra_blocks = (size / EMMC_BLOCK_SIZE);
+  for(uint32_t i = 0; i <= num_extra_blocks; ++i){
+    memcpy(block.buf, &buf[i*EMMC_BLOCK_SIZE], EMMC_BLOCK_SIZE);
+    STATUS_OK_OR_RETURN(fat_write_block(&dir_entry, i, &block));
+  }
+
+  STATUS_OK_OR_RETURN(fat_set_dir_entry(file_name, &dir_entry));
+  return STATUS_OK;
+}
+
+status_t fat_read_file(const char* file_name, uint8_t* buf, uint32_t size){
+  fat_directory_entry_t dir_entry;
+  STATUS_OK_OR_RETURN(fat_get_dir_entry(file_name, &dir_entry));
+  if(dir_entry.file_size < size){
+    SYS_LOGE("read size is larger than file size");
+    return STATUS_ERR;
+  }
+
+  uint32_t num_extra_blocks = (size / EMMC_BLOCK_SIZE);
+  emmc_block_t block;
+  for(uint32_t i = 0; i <= num_extra_blocks; ++i){
+    STATUS_OK_OR_RETURN(fat_read_block(&dir_entry, i, &block));
+    memcpy(&buf[i*EMMC_BLOCK_SIZE], block.buf, EMMC_BLOCK_SIZE);
+  }
+
   return STATUS_OK;
 }
 

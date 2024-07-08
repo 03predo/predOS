@@ -58,23 +58,18 @@ int kernel_start(){
   
   if(fat_create_file("log.txt") != STATUS_OK){
     SYS_LOGV("failed to create file");
+    return -1;
   }
   
-  fat_directory_entry_t dir_entry;
-  if(fat_get_dir_entry("log.txt", &dir_entry) == STATUS_OK){
+  uint8_t write_buf[] = "hello\n";
+  if(fat_write_file("log.txt", write_buf, sizeof(write_buf)) == STATUS_OK){
+    fat_directory_entry_t dir_entry;
+    fat_get_dir_entry("log.txt", &dir_entry);
     fat_print_entry(dir_entry);
-    emmc_block_t block;
-    memset(block.buf, 0, EMMC_BLOCK_SIZE);
-    uint16_t *buf = (uint16_t*)block.buf;
-    buf[0] = 'h';
-    buf[1] = 'e';
-    buf[2] = 'l';
-    buf[3] = 'l';
-    buf[4] = 'o';
-    buf[5] = '\n';
-    fat_write_block(&dir_entry, 0, &block);
-    fat_read_block(&dir_entry, 0, &block);
-    emmc_print_block(block);
+
+    uint8_t read_buf[7];
+    fat_read_file("log.txt", read_buf, 7);
+    SYS_LOGD("read_buf: %s", read_buf);
   }else{
     SYS_LOGV("file not found");
   }

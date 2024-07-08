@@ -305,10 +305,14 @@ status_t emmc_finish_write(){
     SYS_LOGE("data not done");
     return STATUS_ERR;
   }
+  return STATUS_OK;
 }
 
 status_t emmc_write_block(uint32_t start_block_address, uint16_t num_blocks, emmc_block_t block[]){
-  if(emmc_start_write(start_block_address, num_blocks) != STATUS_OK) return STATUS_ERR;
+  if(emmc_start_write(start_block_address, num_blocks) != STATUS_OK){
+    SYS_LOGE("failed to start write");
+    return STATUS_ERR;
+  }
 
   for(uint32_t i = 0; i < num_blocks; i++){
     for(uint32_t j = 0; j < (EMMC_BLOCK_SIZE / sizeof(uint32_t)); j++){
@@ -316,7 +320,10 @@ status_t emmc_write_block(uint32_t start_block_address, uint16_t num_blocks, emm
     }
   }
 
-  if(emmc_finish_write() != STATUS_OK) return STATUS_ERR;
+  if(emmc_finish_write() != STATUS_OK){
+    SYS_LOGE("failed to finish write");
+    return STATUS_ERR;
+  }
  
   return STATUS_OK;
 }
