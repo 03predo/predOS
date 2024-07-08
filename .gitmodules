@@ -1,3 +1,6 @@
 [submodule "external/Unity"]
 	path = external/Unity
 	url = git@github.com:ThrowTheSwitch/Unity.git
+[submodule "external/--force"]
+	path = external/--force
+	url = git@github.com:ThrowTheSwitch/Unity.git
