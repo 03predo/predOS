@@ -9,12 +9,12 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLOG_LEVEL=LOG_LEVEL_DEBUG" )
 if(PREDOS_TEST)
   add_subdirectory(external)
   enable_testing()
-  add_subdirectory(test)
 else()
   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard" )
   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0" )
 
-  add_subdirectory(src)
 endif()
+
+add_subdirectory(src)
 

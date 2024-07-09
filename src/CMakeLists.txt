@@ -1,5 +1,9 @@
 set(COMMON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/common)
 set(APPS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/apps)
-add_subdirectory(drivers)
+if(NOT PREDOS_TEST)
+  add_subdirectory(drivers)
+  add_subdirectory(apps)
+endif()
+
 add_subdirectory(kernel)
-add_subdirectory(apps)
+

@@ -1,0 +1,7 @@
+if(PREDOS_TEST)
+  add_subdirectory(test)
+else()
+  add_library(fat OBJECT fat.c)
+  target_link_libraries(fat PRIVATE drivers)
+  target_include_directories(fat PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
