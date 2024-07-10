@@ -4,3 +4,6 @@
 [submodule "external/--force"]
 	path = external/--force
 	url = git@github.com:ThrowTheSwitch/Unity.git
+[submodule "external/CMock"]
+	path = external/CMock
+	url = git@github.com:ThrowTheSwitch/CMock.git
