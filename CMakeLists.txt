@@ -7,6 +7,7 @@ set( IMG_DIR ${CMAKE_BINARY_DIR}/img )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLOG_LEVEL=LOG_LEVEL_DEBUG" )
 
 if(PREDOS_TEST)
+  set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
   add_subdirectory(external)
   enable_testing()
 else()

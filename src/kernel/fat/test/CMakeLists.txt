@@ -1,5 +1,7 @@
-add_executable(test_fat test_fat.c)
+include(create_test)
 
-target_link_libraries(test_fat Unity)
+create_test(test_fat test_fat.c "")
+target_link_libraries(test_fat fat mock_emmc mock_sys_timer)
+target_include_directories(test_fat PUBLIC ${COMMON_DIR})
 
-add_test(NAME test_runner_fat COMMAND test_fat)
+

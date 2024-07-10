@@ -1,5 +1,4 @@
 set(SOC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/bcm2835)
-set(DRIVER_INTERFACE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/interfaces)
 
 add_subdirectory(bcm2835)
 add_subdirectory(gpio)
