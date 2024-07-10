@@ -3,7 +3,7 @@
 
 
 scriptdir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-compilerdir=${scriptdir}/../compiler
+compilerdir=${scriptdir}/../cmake
 basedir=${scriptdir}/../
 firmwaredir=${scriptdir}/../firmware
 
@@ -27,6 +27,7 @@ fi
 must_have curl
 must_have md5sum
 must_have tar
+must_have ruby
 
 if [ ! -f ${compilerdir}/${archive} ]; then
     must_run curl --fail -o ${compilerdir}/${archive} ${source}
