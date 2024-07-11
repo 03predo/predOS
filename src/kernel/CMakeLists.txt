@@ -1,18 +1,17 @@
+
 add_subdirectory(fat)
+
 if(NOT PREDOS_TEST)
+  add_subdirectory(boot)
+  add_subdirectory(isr)
+  add_subdirectory(mmu)
   add_executable(
     kernel
     kernel.c
     kernel.S
-    exception_handlers.c
-    exception_handlers.S
-    cstub.c
-    boot.S
-    debug_interface.c
-    mmu.c
-    mmu.S
+    syscall.c
   )
-  target_link_libraries(kernel PRIVATE fat drivers apps)
+  target_link_libraries(kernel PRIVATE boot isr fat mmu drivers apps)
   add_custom_command(
       TARGET kernel POST_BUILD
       COMMAND ${CMAKE_OBJCOPY} ${CMAKE_CURRENT_BINARY_DIR}/kernel${CMAKE_EXECUTABLE_SUFFIX} -O binary ${CMAKE_CURRENT_BINARY_DIR}/kernel.img

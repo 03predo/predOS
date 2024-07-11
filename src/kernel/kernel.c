@@ -9,7 +9,6 @@
 
 #include "kernel.h"
 #include "sys_log.h"
-#include "debug_interface.h"
 #include "gpio.h"
 #include "sys_timer.h"
 #include "uart.h"
