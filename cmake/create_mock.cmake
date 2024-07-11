@@ -4,7 +4,7 @@ function(create_mock mock_name header_abs_path)
   add_custom_command (
     OUTPUT ${header_folder}/mocks/${mock_name}.c
     COMMAND ruby
-            ${CMAKE_SOURCE_DIR}/external/cmock/lib/cmock.rb
+            ${CMAKE_SOURCE_DIR}/external/CMock/lib/cmock.rb
             -o${CMAKE_SOURCE_DIR}/cmake/project.yml
             ${header_abs_path}
     WORKING_DIRECTORY ${header_folder}

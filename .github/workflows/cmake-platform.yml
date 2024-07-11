@@ -1,6 +1,6 @@
 # This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
 # See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
-name: CMake on multiple platforms
+name: CMake Build and Test
 
 on:
   push:
@@ -31,15 +31,28 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        submodules: true
+
 
     - name: Set reusable strings
-      # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
       id: strings
       shell: bash
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
+    - name: Environment
+      run: |
+        sudo apt install mtools
+        sudo make env
+
     - name: Build
-      # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-      run: sudo make env; sudo make build
+      run: sudo make build
+
+    - name: Test
+      run: |
+        git submodule update --init --recursive
+        sudo make build_test
+        sudo make run_test
 
