@@ -1,5 +1,8 @@
 all: build
 
+env:
+	./scripts/get_dependencies.sh
+
 build:
 	@if [ ! -d ${basedir}/build ]; then\
   	cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi-rpi1.cmake;\
