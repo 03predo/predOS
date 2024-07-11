@@ -15,7 +15,6 @@ else()
   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard" )
   set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0" )
-
 endif()
 
 add_subdirectory(src)
