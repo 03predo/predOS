@@ -35,24 +35,18 @@ jobs:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         submodules: true
 
-
-    - name: Set reusable strings
-      id: strings
-      shell: bash
-      run: |
-        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-
     - name: Environment
       run: |
-        sudo apt install mtools
-        sudo make env
+        git submodule update --init --recursive
+        git clone --depth 1 https://github.com/raspberrypi/firmware.git firmware
+        docker pull 03predo/predos:v1.0
+        docker run --rm -id -v $PWD/:/root/predOS --name predos 03predo/predos:v1.0
 
     - name: Build
-      run: sudo make build
+      run: docker exec -i predos bash -c 'cd predOS ; make build'
 
     - name: Test
       run: |
-        git submodule update --init --recursive
-        sudo make build_test
-        sudo make run_test
+        docker exec -i predos bash -c 'cd predOS ; make build_test'
+        docker exec -i predos bash -c 'cd predOS ; make run_test'
 
