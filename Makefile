@@ -21,19 +21,19 @@ build_test:
 
 bt: build_test
 
-run_test:
-	ctest --output-on-failure --verbose --test-dir build_test
+run_test: build_test
+	ctest --output-on-failure --test-dir build_test
 
 rt: run_test
 
 coverage: run_test
-	mkdir coverage
-	python3 -m gcovr -r src/kernel/fat --object-directory build_test/src/kernel/fat --html-details coverage/report.html
+	mkdir -p coverage
+	python3 -m gcovr -e '/.*/test/' -r src/kernel/fat --object-directory build_test/src/kernel/fat --html-details coverage/report.html
 
-c: coverage
+cov: coverage
 
 clean:
 	rm -rf build build_test coverage
 
-.PHONY: build build_test run_test coverage b bt rt c
+.PHONY: build build_test run_test coverage b bt rt cov
 
