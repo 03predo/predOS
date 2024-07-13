@@ -18,7 +18,7 @@ set( CMAKE_SYSTEM_PROCESSOR     BCM2835 )
 
 # Set a toolchain path. You only need to set this if the toolchain isn't in
 # your system path.
-set(TC_PATH ${CMAKE_SOURCE_DIR}/cmake/gcc-arm-9.2-2019.12-x86_64-arm-none-eabi/bin/)
+set(TC_PATH /gcc-arm-9.2-2019.12-x86_64-arm-none-eabi/bin/)
 
 # The toolchain prefix for all toolchain executables
 set( CROSS_COMPILE arm-none-eabi- )
@@ -54,6 +54,6 @@ set( CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_C_FLAGS} -T ${CMAKE_CURRENT_SOURCE_DIR}/cmake/link.ld")
 
 execute_process(
-  COMMAND ${CMAKE_SOURCE_DIR}/scripts/get_dependencies.sh
+  COMMAND ${CMAKE_SOURCE_DIR}/scripts/get_firmware.sh
 )
 

@@ -5,4 +5,5 @@ build/
 build_test/
 Testing/
 **/mocks/*
+coverage/
 
