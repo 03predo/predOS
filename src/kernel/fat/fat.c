@@ -28,7 +28,7 @@
 #define MAX_FILE_NAME_LEN 12
 
 static file_allocation_table_t fat;
-static fat_directory_entry_t system_file_table[MAX_OPEN_FILES];
+static fat_inode_t system_inode_table[MAX_OPEN_FILES];
 static uint8_t invalid_bytes[] = {
   0x00, 0x22, 0x2a, 0x2b, 0x2c, 0x2f, 0x3a, 0x3b,
   0x3c, 0x3d, 0x3e, 0x3f, 0x5b, 0x5c, 0x5d, 0x7c
@@ -199,7 +199,7 @@ status_t fat_init(){
   fat_print_bpb();
 
   for(uint32_t i = 0; i < MAX_OPEN_FILES; ++i){
-    system_file_table[i].name[0] = 0;
+    system_inode_table[i].dir_entry.name[0] = 0;
   }
   return STATUS_OK;
 }
@@ -474,11 +474,18 @@ status_t fat_read_file(const char* file_name, uint8_t* buf, uint32_t size){
 */
 
 status_t fat_open_file(const char* file_name, int flags, int* fd){
+  if((flags & (O_RDONLY | O_WRONLY | O_RDWR)) == 0){
+    SYS_LOGV("invalid flags: %#x, %#x", flags, (O_RDONLY | O_WRONLY | O_RDWR));
+    *fd = -1;
+    return STATUS_ERR;
+  }
+
   fat_directory_entry_t* dir_entry = NULL;
   for(uint32_t i = 0; i < MAX_OPEN_FILES; ++i){
-    if(system_file_table[i].name[0] == 0){
+    if(system_inode_table[i].dir_entry.name[0] == 0){
       SYS_LOGV("found free file descriptor: %d", i);
-      dir_entry = &system_file_table[i];
+      system_inode_table.flags = flags;
+      dir_entry = &system_inode_table[i].dir_entry;
       *fd = i;
       break;
     }
@@ -495,14 +502,14 @@ status_t fat_open_file(const char* file_name, int flags, int* fd){
   if((flags & O_CREAT) != 0){
     if(fat_create_file(file_name) != STATUS_OK){
       SYS_LOGE("failed to create file");
-      memset(&system_file_table[*fd], 0, sizeof(fat_directory_entry_t));
+      memset(&system_inode_table[*fd].dir_entry, 0, sizeof(fat_directory_entry_t));
       *fd = -1;
       return STATUS_ERR;
     }
     return STATUS_OK;
   }
   SYS_LOGE("file %s doesn't exist and O_CREAT not set", file_name);
-  memset(&system_file_table[*fd], 0, sizeof(fat_directory_entry_t));
+  memset(&system_inode_table[*fd].dir_entry, 0, sizeof(fat_directory_entry_t));
   *fd = -1;
   return STATUS_ERR;
 }
@@ -511,7 +518,7 @@ status_t fat_close_file(int fd){
   if(fd >= MAX_OPEN_FILES){
     return STATUS_ERR;
   }
-  memset(&system_file_table[fd], 0, sizeof(fat_directory_entry_t));
+  memset(&system_inode_table[fd].dir_entry, 0, sizeof(fat_directory_entry_t));
   return STATUS_OK;
 }
 

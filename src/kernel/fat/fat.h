@@ -134,6 +134,11 @@ typedef struct {
   uint32_t file_size;
 } fat_directory_entry_t;
 
+typedef struct {
+  int flags;
+  fat_directory_entry_t dir_entry;
+} fat_inode_t;
+
 status_t fat_init();
 status_t fat_print_entry(fat_directory_entry_t entry);
 status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_number, emmc_block_t* block);

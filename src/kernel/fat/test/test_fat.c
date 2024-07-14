@@ -424,25 +424,28 @@ void test_fat_open_file(){
   int fd = -1;
   TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
   for(uint32_t i = 0; i < MAX_OPEN_FILES; ++i){
-    TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("config.txt", 0, &fd));
+    TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("config.txt", O_RDWR, &fd));
     TEST_ASSERT_NOT_EQUAL(-1, fd);
   }
   
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_open_file("config.txt", 0, &fd)); 
   TEST_ASSERT_EQUAL(-1, fd);
 
-  TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
-  TEST_ASSERT_EQUAL(STATUS_ERR, fat_open_file("tmp.txt", 0, &fd)); 
+  TEST_ASSERT_EQUAL(STATUS_ERR, fat_open_file("config.txt", O_RDWR, &fd)); 
   TEST_ASSERT_EQUAL(-1, fd);
 
-  TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_CREAT, &fd)); 
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
+  TEST_ASSERT_EQUAL(STATUS_ERR, fat_open_file("tmp.txt", O_RDWR, &fd)); 
+  TEST_ASSERT_EQUAL(-1, fd);
+
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_CREAT | O_RDWR, &fd)); 
   TEST_ASSERT_NOT_EQUAL(-1, fd);
 
   mock_emmc_Init();
   emmc_read_block_Stub(mock_emmc_read_block_stub7);
   emmc_write_block_ExpectAnyArgsAndReturn(STATUS_ERR);
 
-  TEST_ASSERT_EQUAL(STATUS_ERR, fat_open_file("tmp1.txt", O_CREAT, &fd)); 
+  TEST_ASSERT_EQUAL(STATUS_ERR, fat_open_file("tmp1.txt", O_CREAT | O_RDWR, &fd)); 
   TEST_ASSERT_EQUAL(-1, fd);
 }
 
@@ -454,7 +457,7 @@ void test_fat_close_file(){
 
   int fd = -1;
   TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
-  TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_CREAT, &fd)); 
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_CREAT | O_RDWR, &fd)); 
   TEST_ASSERT_NOT_EQUAL(-1, fd);
   TEST_ASSERT_EQUAL(STATUS_OK, fat_close_file(fd));
 
