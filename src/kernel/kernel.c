@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
@@ -20,6 +21,7 @@
 #include "fat.h"
 
 #define LED_PIN 16
+#define BUF_SIZE 1300
 
 extern int __bss_start__;
 extern int __bss_end__;
@@ -50,28 +52,42 @@ void setup_app_stack(){
 
 int kernel_start(){
   gpio_func(LED_PIN, GPIO_OUTPUT); 
-  uart_init(3000000);
+  uart_init(115200);
   _enable_interrupts();
 
   fat_init();
 
   SYS_LOGV("starting predOS");
 
-  int fd = open("config.txt", O_RDWR);
-  SYS_LOGV("fd: %d", fd);
-  
-  fd = open("log.txt", O_RDWR);
-  SYS_LOGV("fd: %d", fd);
+  sys_timer_sleep(1000000);
+  int fd = open("big.txt", O_RDWR | O_CREAT);
+  if(fd == -1){
+    SYS_LOGE("open failed");
+    exit(-1);
+  }
 
-  fd = open("log.txt", O_RDWR | O_CREAT);
-  SYS_LOGV("fd: %d", fd);
+  char buf[BUF_SIZE];
+  int bytes_read = read(fd, buf, BUF_SIZE);
+  if(bytes_read == -1){
+    SYS_LOGE("read failed");
+    exit(-1);
+  }
+  for(int i = 0; i < bytes_read; ++i){
+    printf("%c", buf[i]);
+    sys_timer_sleep(100);
+  }
 
-  close(0);
-  fd = open("log.txt", O_RDWR);
-  SYS_LOGV("fd: %d", fd);
-
-
-  return 0;
+  bytes_read = read(fd, buf, BUF_SIZE);
+  if(bytes_read == -1){
+    SYS_LOGE("read failed");
+    exit(-1);
+  }
+  for(int i = 0; i < bytes_read; ++i){
+    printf("%c", buf[i]);
+    sys_timer_sleep(100);
+  }
+  printf("\n");
+  exit(0);
 }
 
 int kernel_init(void)

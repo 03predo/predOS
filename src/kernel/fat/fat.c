@@ -484,7 +484,8 @@ status_t fat_open_file(const char* file_name, int flags, int* fd){
   for(uint32_t i = 0; i < MAX_OPEN_FILES; ++i){
     if(system_inode_table[i].dir_entry.name[0] == 0){
       SYS_LOGV("found free file descriptor: %d", i);
-      system_inode_table.flags = flags;
+      system_inode_table[i].flags = flags;
+      system_inode_table[i].file_offset = 0;
       dir_entry = &system_inode_table[i].dir_entry;
       *fd = i;
       break;
@@ -522,3 +523,50 @@ status_t fat_close_file(int fd){
   return STATUS_OK;
 }
 
+status_t fat_read_file(int fd, char *buf, int len, int* bytes_read){
+  fat_inode_t* inode = &system_inode_table[fd];
+  if((inode->flags & (O_RDONLY | O_RDWR)) == 0){
+    SYS_LOGE("read failed invalid flags: %#x", inode->flags);
+    return STATUS_ERR;
+  }else if(len > inode->dir_entry.file_size){
+    SYS_LOGE("read length greater than file size: %d > %d", len, inode->dir_entry.file_size);
+    return STATUS_ERR;
+  }
+
+  uint32_t block_offset = inode->file_offset / EMMC_BLOCK_SIZE;
+  uint32_t block_index = (inode->file_offset % EMMC_BLOCK_SIZE);
+  uint32_t block_num = len / EMMC_BLOCK_SIZE;
+  if((len % EMMC_BLOCK_SIZE) > (EMMC_BLOCK_SIZE - block_index)) block_num++;
+
+
+  SYS_LOGV("file_offset: %d, block_offset: %d, block_num: %d", inode->file_offset, block_offset, block_num);
+  
+  uint32_t buf_offset = 0;
+  emmc_block_t block;
+  for(uint32_t i = 0; i <= block_num; ++i){
+    STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + i, &block)); 
+    if(i == 0){
+      uint32_t memcpy_size = len < (EMMC_BLOCK_SIZE - block_index) ? len : EMMC_BLOCK_SIZE - block_index;
+      SYS_LOGV("buf_offset: %d, block_num: %d, block_index: %d, memcpy_size: %d", 0, block_offset + i, block_index, memcpy_size); 
+      uint8_t* block_buf = (uint8_t*) block.buf;
+      memcpy(buf, block_buf + block_index, memcpy_size);
+      buf_offset = memcpy_size;
+    }else if(i == block_num){
+      if((len % EMMC_BLOCK_SIZE) > (EMMC_BLOCK_SIZE - block_index)){
+        SYS_LOGV("buf_offset: %d, block_num: %d, block_index: %d, memcpy_size: %d", buf_offset, block_offset + i, 0, (len % EMMC_BLOCK_SIZE) - (EMMC_BLOCK_SIZE - block_index));
+        memcpy(&buf[buf_offset], block.buf, (len % EMMC_BLOCK_SIZE) - (EMMC_BLOCK_SIZE - block_index));
+      }else{
+        SYS_LOGV("buf_offset: %d, block_num: %d, block_index: %d, memcpy_size: %d", buf_offset, block_offset + i, 0, (len % EMMC_BLOCK_SIZE) + block_index);
+        memcpy(&buf[buf_offset], block.buf, (len % EMMC_BLOCK_SIZE) + block_index);
+      }
+    }else{
+      SYS_LOGV("buf_offset: %d, block_num: %d, block_index: %d, memcpy_size: %d", buf_offset, block_offset + i, 0, EMMC_BLOCK_SIZE);
+      memcpy(&buf[buf_offset], block.buf, EMMC_BLOCK_SIZE);
+      buf_offset += EMMC_BLOCK_SIZE;
+    }
+  }
+
+  inode->file_offset += len;
+  *bytes_read = len;
+  return STATUS_OK;
+}

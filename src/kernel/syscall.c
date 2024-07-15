@@ -29,7 +29,11 @@ int _lseek(int file, int ptr, int dir){
 }
 
 int _read(int file, char *ptr, int len){
-  return 0;
+  int bytes_read = -1;
+  if(fat_read_file(file, ptr, len, &bytes_read) != STATUS_OK){
+    return -1;
+  }
+  return bytes_read;
 }
 
 int _isatty(int file){
