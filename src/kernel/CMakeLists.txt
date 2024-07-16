@@ -5,13 +5,13 @@ if(NOT PREDOS_TEST)
   add_subdirectory(boot)
   add_subdirectory(isr)
   add_subdirectory(mmu)
+  add_subdirectory(syscall)
   add_executable(
     kernel
     kernel.c
     kernel.S
-    syscall.c
   )
-  target_link_libraries(kernel PRIVATE boot isr fat mmu drivers apps)
+  target_link_libraries(kernel PRIVATE boot isr fat mmu drivers syscall)
   add_custom_command(
       TARGET kernel POST_BUILD
       COMMAND ${CMAKE_OBJCOPY} ${CMAKE_CURRENT_BINARY_DIR}/kernel${CMAKE_EXECUTABLE_SUFFIX} -O binary ${CMAKE_CURRENT_BINARY_DIR}/kernel.img
@@ -19,11 +19,20 @@ if(NOT PREDOS_TEST)
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
       COMMENT "Convert the ELF output file to a binary image" )
 
-  add_custom_target(make_image ALL DEPENDS make_image)
+
+  add_custom_target(image_make ALL DEPENDS image_make)
   add_custom_command(
-    TARGET make_image POST_BUILD
+    TARGET image_make POST_BUILD
     DEPENDS kernel
-    COMMAND ${CMAKE_SOURCE_DIR}/scripts/make_card.sh ${CMAKE_CURRENT_BINARY_DIR}/kernel.img ${IMG_DIR}
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/img_init.sh ${CMAKE_CURRENT_BINARY_DIR}/kernel.img ${IMG_DIR}
   )
+
+  add_custom_target(image_add_big ALL DEPENDS image_add_big)
+  add_custom_command(
+    TARGET image_add_big POST_BUILD
+    DEPENDS kernel
+    COMMAND ${CMAKE_SOURCE_DIR}/scripts/img_add_file.sh ${IMG_DIR}/mbr ${IMG_DIR}/fat ${CMAKE_SOURCE_DIR}/big.txt ${IMG_DIR}/predOS.img
+  )  
+
 endif()
 

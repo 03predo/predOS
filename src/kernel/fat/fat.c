@@ -547,20 +547,16 @@ status_t fat_read_file(int fd, char *buf, int len, int* bytes_read){
     STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + i, &block)); 
     if(i == 0){
       uint32_t memcpy_size = len < (EMMC_BLOCK_SIZE - block_index) ? len : EMMC_BLOCK_SIZE - block_index;
-      SYS_LOGV("buf_offset: %d, block_num: %d, block_index: %d, memcpy_size: %d", 0, block_offset + i, block_index, memcpy_size); 
       uint8_t* block_buf = (uint8_t*) block.buf;
       memcpy(buf, block_buf + block_index, memcpy_size);
       buf_offset = memcpy_size;
     }else if(i == block_num){
-      if((len % EMMC_BLOCK_SIZE) > (EMMC_BLOCK_SIZE - block_index)){
-        SYS_LOGV("buf_offset: %d, block_num: %d, block_index: %d, memcpy_size: %d", buf_offset, block_offset + i, 0, (len % EMMC_BLOCK_SIZE) - (EMMC_BLOCK_SIZE - block_index));
+      if(((len % EMMC_BLOCK_SIZE) + block_index) > EMMC_BLOCK_SIZE){
         memcpy(&buf[buf_offset], block.buf, (len % EMMC_BLOCK_SIZE) - (EMMC_BLOCK_SIZE - block_index));
       }else{
-        SYS_LOGV("buf_offset: %d, block_num: %d, block_index: %d, memcpy_size: %d", buf_offset, block_offset + i, 0, (len % EMMC_BLOCK_SIZE) + block_index);
         memcpy(&buf[buf_offset], block.buf, (len % EMMC_BLOCK_SIZE) + block_index);
       }
     }else{
-      SYS_LOGV("buf_offset: %d, block_num: %d, block_index: %d, memcpy_size: %d", buf_offset, block_offset + i, 0, EMMC_BLOCK_SIZE);
       memcpy(&buf[buf_offset], block.buf, EMMC_BLOCK_SIZE);
       buf_offset += EMMC_BLOCK_SIZE;
     }

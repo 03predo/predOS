@@ -1,8 +1,13 @@
 cmake_minimum_required( VERSION 3.22.1 )
 
-project(predOS C ASM)
+project(
+  predOS
+  VERSION 0.1
+  LANGUAGES C ASM
+)
 
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DVERSION=\\\"${PROJECT_VERSION}\\\"")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLOG_LEVEL=LOG_LEVEL_DEBUG")
 
 if(PREDOS_TEST)
@@ -14,10 +19,15 @@ if(PREDOS_TEST)
   add_subdirectory(external)
   enable_testing()
 else()
-  set( IMG_DIR ${CMAKE_BINARY_DIR}/img )
-  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles" )
-  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard" )
-  set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0" )
+  set(IMG_DIR ${CMAKE_BINARY_DIR}/img ) 
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+
+  set(APP_C_FLAGS "${CMAKE_C_FLAGS}")
+  set(APP_LINKER_FLAGS "${APP_C_FLAGS}")
+
+  set(KERNEL_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles")
+  set(KERNEL_LINKER_FLAGS "${KERNEL_C_FLAGS} -T ${CMAKE_SOURCE_DIR}/cmake/link.ld")
 endif()
 
 add_subdirectory(src)

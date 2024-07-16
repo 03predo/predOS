@@ -13,7 +13,6 @@
 #include "gpio.h"
 #include "sys_timer.h"
 #include "uart.h"
-#include "example/example.h"
 #include "bcm2835.h"
 #include "emmc.h"
 #include "mmu.h"
@@ -45,19 +44,20 @@ void setup_app_stack(){
   *(--APP_STACK) = 0xDEADBEEF; // r2
   *(--APP_STACK) = 0xDEADBEEF; // r1
   *(--APP_STACK) = 0xDEADBEEF; // r0
-  *(--APP_STACK) = (uint32_t)example_main; // context switch lr
+  //*(--APP_STACK) = (uint32_t)example_main; // context switch lr
   *(--APP_STACK) = 0x60000110; // SPSR
 
 }
 
 int kernel_start(){
   gpio_func(LED_PIN, GPIO_OUTPUT); 
-  uart_init(115200);
+  uart_init(3000000);
   _enable_interrupts();
 
   fat_init();
 
-  SYS_LOGV("starting predOS");
+  SYS_LOGV("starting predOS (v%s)", VERSION);
+  SYS_LOGV("new new hello world");
 
   sys_timer_sleep(1000000);
   int fd = open("big.txt", O_RDWR | O_CREAT);
@@ -87,7 +87,7 @@ int kernel_start(){
     sys_timer_sleep(100);
   }
   printf("\n");
-  exit(0);
+  while(1);
 }
 
 int kernel_init(void)
