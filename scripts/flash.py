@@ -29,8 +29,17 @@ ser.baudrate = BAUDRATE
 ser.open()
 
 ser.write(b'L\r') # load command
-print(ser.readline().decode('utf-8'), end="") # L
-print(ser.readline().decode('utf-8'), end="") # ready to receive image
+log = ser.readline().decode('utf-8')
+if(log.find('\n') == -1):
+    print("timeout")
+    exit
+print(log, end="") # L
+
+log = ser.readline().decode('utf-8')
+if(log.find('\n') == -1):
+    print("timeout")
+    exit
+print(log, end="") # ready to receive image
 
 b = ser.write(num_blocks.to_bytes(4, 'little'))
 assert(b == 4)
@@ -47,6 +56,7 @@ print(ser.readline().decode('utf-8'), end="") # write complete
 print(ser.readline().decode('utf-8'), end="") # received image of size
 
 ser.write(b'R\r') # reset command
+print("finished flash")
 
 while(1):
     log = ser.readline().decode('utf-8')

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
@@ -12,7 +13,6 @@
 #include "gpio.h"
 #include "sys_timer.h"
 #include "uart.h"
-#include "example/example.h"
 #include "bcm2835.h"
 #include "emmc.h"
 #include "mmu.h"
@@ -20,6 +20,7 @@
 #include "fat.h"
 
 #define LED_PIN 16
+#define BUF_SIZE 2248
 
 extern int __bss_start__;
 extern int __bss_end__;
@@ -43,7 +44,7 @@ void setup_app_stack(){
   *(--APP_STACK) = 0xDEADBEEF; // r2
   *(--APP_STACK) = 0xDEADBEEF; // r1
   *(--APP_STACK) = 0xDEADBEEF; // r0
-  *(--APP_STACK) = (uint32_t)example_main; // context switch lr
+  //*(--APP_STACK) = (uint32_t)example_main; // context switch lr
   *(--APP_STACK) = 0x60000110; // SPSR
 
 }
@@ -55,23 +56,55 @@ int kernel_start(){
 
   fat_init();
 
-  SYS_LOGV("starting predOS");
+  SYS_LOGV("starting predOS (v%s)", VERSION);
+  SYS_LOGV("stdout: %#x, stdin: %#x, stderr: %#x", stdout, stdin, stderr);
 
-  int fd = open("config.txt", O_RDWR);
-  SYS_LOGV("fd: %d", fd);
+  sys_timer_sleep(1000000);
+  int big_fd = open("big.txt", O_RDWR | O_CREAT);
+  if(big_fd == -1){
+    SYS_LOGE("open failed");
+    exit(-1);
+  }
+ 
+  int bytes_read;
+  char buf[BUF_SIZE];
+  if(read(big_fd, buf, BUF_SIZE) == -1){
+    SYS_LOGE("read failed");
+    exit(-1);
+  }
+
+  int log_fd = open("log.txt", O_RDWR | O_CREAT);
+  if(write(log_fd, buf, BUF_SIZE) == -1){
+    SYS_LOGE("write failed");
+    exit(-1);
+  }
+
+  if(read(big_fd, buf, 600) == -1){
+    SYS_LOGE("read failed");
+    exit(-1);
+  }
+
+  if(close(log_fd) == -1){
+    SYS_LOGE("close failed");
+    exit(-1);
+  }
+  log_fd = open("log.txt", O_RDWR | O_CREAT);
   
-  fd = open("log.txt", O_RDWR);
-  SYS_LOGV("fd: %d", fd);
+  if(write(log_fd, buf, 600) == -1){
+    SYS_LOGE("write failed");
+    exit(-1);
+  }
 
-  fd = open("log.txt", O_RDWR | O_CREAT);
-  SYS_LOGV("fd: %d", fd);
+  if(close(log_fd) == -1){
+    SYS_LOGE("close failed");
+    exit(-1);
+  }
 
-  close(0);
-  fd = open("log.txt", O_RDWR);
-  SYS_LOGV("fd: %d", fd);
-
-
-  return 0;
+  if(close(big_fd) == -1){
+    SYS_LOGE("close failed");
+    exit(-1);
+  }
+  while(1);
 }
 
 int kernel_init(void)

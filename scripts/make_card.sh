@@ -129,6 +129,7 @@ mcopy -v -i ${tmpcardpart} ${scriptdir}/../firmware/boot/bootcode.bin  ::bootcod
 fi
 mcopy -v -i ${tmpcardpart} ${scriptdir}/../firmware/boot/${fixupfile}  ::${fixupfile}
 mcopy -v -i ${tmpcardpart} ${scriptdir}/../firmware/boot/${startfile}  ::${startfile}
+mcopy -v -i ${tmpcardpart} ${scriptdir}/../big.txt  ::big.txt
 mcopy -v -i ${tmpcardpart} ${tmpcfg}                                             ::config.txt
 
 # Stich the disk image together by copying the partition table from the fake disk image and then concatentate the FAT
