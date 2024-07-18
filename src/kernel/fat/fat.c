@@ -479,7 +479,9 @@ status_t fat_append_block(fat_directory_entry_t* dir_entry, emmc_block_t* block)
 }
 
 status_t fat_open_file(const char* file_name, int flags, int* fd){
-  if((flags & (O_RDONLY | O_WRONLY | O_RDWR)) == 0){
+  if(((flags & O_ACCMODE) != O_RDONLY) &&
+     ((flags & O_ACCMODE) != O_WRONLY) &&
+     ((flags & O_ACCMODE) != O_RDWR)){
     SYS_LOGV("invalid flags: %#x, %#x", flags, (O_RDONLY | O_WRONLY | O_RDWR));
     *fd = -1;
     return STATUS_ERR;
@@ -606,9 +608,11 @@ status_t fat_write_file(int fd, char* buf, int len, int* bytes_written){
   inode->file_offset += memcpy_size;
 
   if((inode->dir_entry.file_size == 0) || (inode->file_offset <= inode->dir_entry.file_size) || (block_index > 0)){
-    SYS_LOGV("block_offset: %d", block_offset);
+    SYS_LOGV("block_offset: %d, file_offset: %d, file_size: %d", block_offset, inode->file_offset, inode->dir_entry.file_size);
     STATUS_OK_OR_RETURN(fat_write_block(&inode->dir_entry, block_offset, &block)); 
-    if(inode->file_offset > inode->dir_entry.file_size) inode->dir_entry.file_size = inode->file_offset;
+    if(inode->file_offset > inode->dir_entry.file_size){
+      inode->dir_entry.file_size = inode->file_offset;
+    }
   }else{
     STATUS_OK_OR_RETURN(fat_append_block(&inode->dir_entry, &block)); 
     inode->dir_entry.file_size = inode->file_offset;

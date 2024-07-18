@@ -9,7 +9,6 @@ scriptdir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 kernel_file=${1}
 imgdir=${2}
 
-
 if [ ! -d ${imgdir} ] ; then
   mkdir ${imgdir}
 fi
