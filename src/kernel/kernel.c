@@ -20,7 +20,7 @@
 #include "fat.h"
 
 #define LED_PIN 16
-#define BUF_SIZE 1300
+#define BUF_SIZE 2248
 
 extern int __bss_start__;
 extern int __bss_end__;
@@ -57,36 +57,53 @@ int kernel_start(){
   fat_init();
 
   SYS_LOGV("starting predOS (v%s)", VERSION);
-  SYS_LOGV("new new hello world");
+  SYS_LOGV("stdout: %#x, stdin: %#x, stderr: %#x", stdout, stdin, stderr);
 
   sys_timer_sleep(1000000);
-  int fd = open("big.txt", O_RDWR | O_CREAT);
-  if(fd == -1){
+  int big_fd = open("big.txt", O_RDWR | O_CREAT);
+  if(big_fd == -1){
     SYS_LOGE("open failed");
     exit(-1);
   }
-
+ 
+  int bytes_read;
   char buf[BUF_SIZE];
-  int bytes_read = read(fd, buf, BUF_SIZE);
-  if(bytes_read == -1){
+  if(read(big_fd, buf, BUF_SIZE) == -1){
     SYS_LOGE("read failed");
     exit(-1);
-  }
-  for(int i = 0; i < bytes_read; ++i){
-    printf("%c", buf[i]);
-    sys_timer_sleep(100);
   }
 
-  bytes_read = read(fd, buf, BUF_SIZE);
-  if(bytes_read == -1){
+  int log_fd = open("log.txt", O_RDWR | O_CREAT);
+  if(write(log_fd, buf, BUF_SIZE) == -1){
+    SYS_LOGE("write failed");
+    exit(-1);
+  }
+
+  if(read(big_fd, buf, 600) == -1){
     SYS_LOGE("read failed");
     exit(-1);
   }
-  for(int i = 0; i < bytes_read; ++i){
-    printf("%c", buf[i]);
-    sys_timer_sleep(100);
+
+  if(close(log_fd) == -1){
+    SYS_LOGE("close failed");
+    exit(-1);
   }
-  printf("\n");
+  log_fd = open("log.txt", O_RDWR | O_CREAT);
+  
+  if(write(log_fd, buf, 600) == -1){
+    SYS_LOGE("write failed");
+    exit(-1);
+  }
+
+  if(close(log_fd) == -1){
+    SYS_LOGE("close failed");
+    exit(-1);
+  }
+
+  if(close(big_fd) == -1){
+    SYS_LOGE("close failed");
+    exit(-1);
+  }
   while(1);
 }
 

@@ -62,7 +62,16 @@ void outbyte(char b){
 }
 
 int _write(int file, char *ptr, int len){
-  uart_print(ptr, len);
+  if((file >= 0) && (file < 2)){
+    uart_print(ptr, len);
+    return len;
+  }
+
+  int bytes_written;
+  if(fat_write_file(file, ptr, len, &bytes_written) != STATUS_OK){
+    return -1;
+  }
+
   return len;
 }
 

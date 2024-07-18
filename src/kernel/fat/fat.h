@@ -4,6 +4,7 @@
 #include "emmc.h"
 
 #define FAT_DIR_ENTRY_NAME_LEN 11
+#define MAX_FILE_NAME_LEN (FAT_DIR_ENTRY_NAME_LEN + 1) // +1 for the '.'
 #define MAX_OPEN_FILES 256
 
 typedef enum {
@@ -136,7 +137,8 @@ typedef struct {
 
 typedef struct {
   int flags;
-  uint32_t file_offset;
+  uint32_t file_offset; // rename to file_index
+  char file_name[MAX_FILE_NAME_LEN + 1];
   fat_directory_entry_t dir_entry;
 } fat_inode_t;
 
@@ -144,9 +146,9 @@ status_t fat_init();
 status_t fat_print_entry(fat_directory_entry_t entry);
 status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_number, emmc_block_t* block);
 status_t fat_write_block(fat_directory_entry_t* dir_entry, uint32_t file_block_number, emmc_block_t* block);
-status_t fat_write_file(const char* file_name, uint8_t* buf, uint32_t size);
+status_t fat_write_file(int fd, char* buf, int len, int* bytes_written);
 status_t fat_read_file(int fd, char *ptr, int len, int* bytes_read);
-status_t fat_create_file(const char* file_name);
+status_t fat_create_file(const char* file_name, fat_directory_entry_t* dir_entry);
 status_t fat_open_file(const char* file_name, int flags, int* fd);
 status_t fat_close_file(int fd);
 
