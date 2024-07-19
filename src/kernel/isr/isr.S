@@ -4,7 +4,9 @@
 
 .global _undefined_instruction_handler
 .global _prefetch_abort_handler
+.global _data_abort_handler
 .global _software_interrupt_handler
+.global _software_interrupt_return
 
 _undefined_instruction_handler:
   cpsie iaf
@@ -14,6 +16,10 @@ _undefined_instruction_handler:
 
 _prefetch_abort_handler:
   b prefetch_abort_handler
+
+_data_abort_handler:
+  mov r0, lr
+  b data_abort_handler
 
 _software_interrupt_handler:
   // disable interrupts
@@ -49,5 +55,24 @@ _software_interrupt_handler:
   stmdb r2!, {r0, lr}
   mov r0, r2
 
+  cpsie i
   b software_interrupt_handler
+
+_software_interrupt_return:
+  ldmia r0!, {r1, r2}
+  msr spsr, r1
+  mov lr, r2
+  srsdb sp!, #(CPSR_MODE_SVR)
+
+  and r2, r1, #0x1f
+  cmp r2, #(CPSR_MODE_USER)
+  biceq r1, r1, #0x1f
+  orreq r1, r1, #(CPSR_MODE_SYSTEM)
+  msr cpsr_c, r1
+
+  mov sp, r0
+  ldmia sp!, {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, lr}
+
+  msr cpsr_c, #(CPSR_MODE_SVR | CPSR_IRQ_INHIBIT | CPSR_FIQ_INHIBIT)
+  rfeia sp!
 

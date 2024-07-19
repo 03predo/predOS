@@ -5,9 +5,7 @@ extern int errno;
 #include <sys/stat.h>
 #include <sys/times.h>
 
-#include "uart.h"
-#include "sys_log.h"
-#include "fat.h"
+#include "kernel.h"
 
 char *__env[1] = {0};
 char **environ = __env;
@@ -18,10 +16,10 @@ void _exit(int status){
 }
 
 int _close(int file){
-  if(fat_close_file(file) == STATUS_OK){
-    return 0;
-  }
-  return -1;
+  asm inline("SVC "XSTR(SVC_CLOSE)); 
+  int fd = -1;
+  GET_R0(fd);
+  return fd;
 }
 
 int _lseek(int file, int ptr, int dir){
@@ -29,10 +27,9 @@ int _lseek(int file, int ptr, int dir){
 }
 
 int _read(int file, char *ptr, int len){
+  asm inline("SVC "XSTR(SVC_READ)); 
   int bytes_read = -1;
-  if(fat_read_file(file, ptr, len, &bytes_read) != STATUS_OK){
-    return -1;
-  }
+  GET_R0(bytes_read);
   return bytes_read;
 }
 
@@ -62,22 +59,16 @@ void outbyte(char b){
 }
 
 int _write(int file, char *ptr, int len){
-  if((file >= 0) && (file < 2)){
-    uart_print(ptr, len);
-    return len;
-  }
-
-  int bytes_written;
-  if(fat_write_file(file, ptr, len, &bytes_written) != STATUS_OK){
-    return -1;
-  }
-
-  return len;
+  asm inline("SVC "XSTR(SVC_WRITE)); 
+  int bytes_written = -1;
+  GET_R0(bytes_written);
+  return bytes_written;
 }
 
 int _open(const char *pathname, int flags){
+  asm inline("SVC "XSTR(SVC_OPEN));
   int fd = -1;
-  fat_open_file(pathname, flags, &fd); 
+  GET_R0(fd);
   return fd;
 }
 

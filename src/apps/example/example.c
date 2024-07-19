@@ -2,11 +2,9 @@
 #include "sys_log.h"
 #include "util.h"
 
-int main(){
+int _start(){
   uint32_t counter = 0;
-  while(1){
-    SYS_LOG("counter: %d", counter++);
-    sys_timer_sleep(1000000);  
-  }
+  printf("hello world\n");
+  while(1);
   return 0;
 }
