@@ -26,9 +26,9 @@
 
 .equ    FIQ_STACK_ADDR,         0x20000000
 .equ    IRQ_STACK_ADDR,         0x1fffc000
-.equ    SVR_STACK_ADDR,         0x1fff8000
-.equ    ABORT_STACK_ADDR,       0x1fff4000
-.equ    HYPERVISOR_STACK_ADDR,  0x1fff0000
-.equ    UNDEFINED_STACK_ADDR,   0x1ffec000
-.equ    SYSTEM_STACK_ADDR,      0x1ffe8000
+.equ    ABORT_STACK_ADDR,       0x1fff8000
+.equ    HYPERVISOR_STACK_ADDR,  0x1fff4000
+.equ    UNDEFINED_STACK_ADDR,   0x1fff0000
+.equ    SVR_STACK_ADDR,         0x1ffec000
+.equ    SYSTEM_STACK_ADDR,      0x1ff90000
 

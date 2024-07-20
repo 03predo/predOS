@@ -14,7 +14,7 @@ b: build
 
 build_test:
 	@if [ ! -d ${basedir}/build_test ]; then\
-  	cmake -S . -B build_test -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DPREDOS_TEST=1 -DCMAKE_C_COMPILER=/usr/bin/gcc;\
+  	cmake -S . -B build_test -DPREDOS_TEST=1 -DCMAKE_C_COMPILER=/usr/bin/gcc;\
 	fi
 
 	cmake --build build_test

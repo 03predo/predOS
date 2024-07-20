@@ -7,6 +7,7 @@
 .global _data_abort_handler
 .global _software_interrupt_handler
 .global _software_interrupt_return
+.global _system_mode
 
 _undefined_instruction_handler:
   cpsie iaf
@@ -19,6 +20,7 @@ _prefetch_abort_handler:
 
 _data_abort_handler:
   mov r0, lr
+  mrc p15, 0, r1, c5, c0, 0
   b data_abort_handler
 
 _software_interrupt_handler:
@@ -54,7 +56,7 @@ _software_interrupt_handler:
   mrs r0, spsr
   stmdb r2!, {r0, lr}
   mov r0, r2
-
+  
   cpsie i
   b software_interrupt_handler
 

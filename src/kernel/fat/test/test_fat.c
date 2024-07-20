@@ -511,7 +511,7 @@ void test_fat_write_file(){
 
   int fd = -1;
   TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
-  TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_CREAT | O_WRONLY | O_APPEND, &fd)); 
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_CREAT | O_WRONLY | O_APPEND, &fd));
   int bytes_written = 0;
   char buf[2200];
   TEST_ASSERT_EQUAL(STATUS_OK, fat_write_file(fd, buf, 2200, &bytes_written));
@@ -530,4 +530,24 @@ void test_fat_write_file(){
 
   TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_RDONLY, &fd)); 
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_write_file(fd, buf, 10, &bytes_written));
+}
+
+void test_fat_seek_file(){
+  sys_uptime_IgnoreAndReturn(0);
+  emmc_init_Stub(mock_emmc_init_stub0);
+  emmc_read_block_Stub(mock_emmc_read_block_stub7);
+  emmc_write_block_Stub(mock_emmc_write_block_stub0);
+
+  int fd = -1;
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("config.txt", O_CREAT | O_WRONLY | O_APPEND, &fd)); 
+  int new_offset = -1;
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_seek_file(fd, 1, SEEK_SET, &new_offset));
+  TEST_ASSERT_EQUAL(new_offset, 1);
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_seek_file(fd, 1, SEEK_CUR, &new_offset));
+  TEST_ASSERT_EQUAL(new_offset, 2);
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_seek_file(fd, 0, SEEK_END, &new_offset));
+  TEST_ASSERT_EQUAL(STATUS_ERR, fat_seek_file(fd, 1, SEEK_END, &new_offset));
+  TEST_ASSERT_EQUAL(STATUS_ERR, fat_seek_file(0, 1, SEEK_SET, &new_offset));
+  TEST_ASSERT_EQUAL(STATUS_ERR, fat_seek_file(fd, 1, 0xff, &new_offset));
 }

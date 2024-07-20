@@ -22,11 +22,9 @@ void __attribute__((interrupt("UNDEF"))) undefined_instruction_handler(uint32_t 
 }
 
 void software_interrupt_handler(uint32_t sp){
-  uint32_t lr1;
-  GET_LR(lr1);
-  SYS_LOGD("lr: %#x");
+  asm inline("cpsie i"); 
   SYS_LOGD("SOFTWARE INTERRUPT");
-  
+
   uint32_t spsr = *((uint32_t*)sp);
   uint32_t lr = *((uint32_t*)(sp + 4));
   uint32_t svc = (*((uint32_t*)(lr - 4))) & 0xffffff;
@@ -53,9 +51,9 @@ void __attribute__((interrupt("ABORT"))) prefetch_abort_handler(void){
   }
 }
 
-void data_abort_handler(uint32_t lr){
+void data_abort_handler(uint32_t lr, uint32_t dfsr){
   asm inline("cpsie i");
-  SYS_LOG("DATA ABORT: %#x", lr);
+  SYS_LOG("DATA ABORT: %#x, %#x", lr, dfsr);
   while(1){
     gpio_pulse(LED_PIN, 4);
     sys_timer_sleep(1000000);

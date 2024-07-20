@@ -6,7 +6,7 @@
 #include "uart.h"
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL LOG_LEVEL_VERBOSE
+#define LOG_LEVEL LOG_LEVEL_INFO
 #endif
 
 #ifdef TEST
@@ -22,6 +22,6 @@
 #endif
 
 #define SYS_LOGD(X, ...) if(LOG_LEVEL <= LOG_LEVEL_DEBUG) SYS_LOG(X, __VA_ARGS__)
-#define SYS_LOGV(X, ...) if(LOG_LEVEL <= LOG_LEVEL_VERBOSE) SYS_LOG(X, __VA_ARGS__)
+#define SYS_LOGI(X, ...) if(LOG_LEVEL <= LOG_LEVEL_INFO) SYS_LOG(X, __VA_ARGS__)
 #define SYS_LOGE(X, ...) if(LOG_LEVEL <= LOG_LEVEL_ERROR) SYS_LOG(X, __VA_ARGS__)
 

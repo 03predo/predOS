@@ -3,60 +3,53 @@
 #include "kernel.h"
 #include "fat.h"
 
-static status_t open(uint32_t* sp){
+static status_t svc_open(uint32_t* sp){
   char* file_name = (char*)sp[0];
   int flags = sp[1];
-  int fd = -1;
   SYS_LOGD("pathname: %s, flags: %#x", file_name, flags);
-  if(fat_open_file(file_name, flags, &fd) != STATUS_OK){
-    SYS_LOGD("fat_open_file failed");
-  }
-  sp[0] = fd;
+  sp[0] = kernel_open(file_name, flags);
   return STATUS_OK;
 }
 
-static status_t close(uint32_t* sp){
+static status_t svc_close(uint32_t* sp){
   int fd = sp[0];
   SYS_LOGD("fd: %#x", fd);
-  if(fat_close_file(fd) != STATUS_OK){
-    SYS_LOGD("fat_close_file failed");
-    sp[0] = -1;
-  }else{
-    sp[0] = 0;
-  }
+  sp[0] = kernel_close(fd);
   return STATUS_OK;
 }
 
-static status_t read(uint32_t* sp){
+static status_t svc_read(uint32_t* sp){
   int fd = sp[0];
   char* buf = (char*)sp[1];
   int len = sp[2];
   int bytes_read = 0;
-  SYS_LOGD("fd: %#x, buf: %#x, len: %#x", fd, buf, len);
-  if(fat_read_file(fd, buf, len, &bytes_read) != STATUS_OK){
-    SYS_LOGD("fat_open_file failed");
-  }
-  sp[0] = bytes_read;
+  SYS_LOGD("fd: %#x, buf: %#x, len: %#x", fd, buf, len); 
+  sp[0] = kernel_read(fd, buf, len);
   return STATUS_OK;
 }
 
-static status_t write(uint32_t* sp){
+static status_t svc_write(uint32_t* sp){
   int fd = sp[0];
   char* buf = (char*)sp[1];
   int len = sp[2];
   SYS_LOGD("fd: %#x, buf: %#x, len: %#x", fd, buf, len);
+  sp[0] = kernel_write(fd, buf, len);
+  return STATUS_OK;
+}
 
-  if((fd >= 0) && (fd < 3)){
-    uart_print(buf, len);
-    sp[0] = len;
-    return STATUS_OK;
-  }
+static status_t svc_lseek(uint32_t* sp){
+  int fd = sp[0];
+  int offset = sp[1];
+  int whence = sp[2];
+  SYS_LOGD("fd: %#x, offset: %#x, whence: %#x", fd, offset, whence); 
+  sp[0] = kernel_lseek(fd, offset, whence);
+  return STATUS_OK;
+}
 
-  int bytes_written = 0;
-  if(fat_write_file(fd, buf, len, &bytes_written) != STATUS_OK){
-    SYS_LOGD("fat_open_file failed");
-  }
-  sp[0] = bytes_written;
+static status_t svc_execv(uint32_t* sp){
+  const char* pathname = (const char*)sp[0];
+  char* const* argv = (char* const*)sp[1];
+  sp[0] = kernel_execv(pathname, argv);
   return STATUS_OK;
 }
 
@@ -64,16 +57,22 @@ status_t svc_handler(uint32_t* sp, uint32_t svc){
   SYS_LOGD("sp: %#x, svc: %#x", sp, svc);
   switch(svc){
     case SVC_OPEN: 
-      STATUS_OK_OR_RETURN(open(sp));
+      STATUS_OK_OR_RETURN(svc_open(sp));
       break;
     case SVC_CLOSE:
-      STATUS_OK_OR_RETURN(close(sp));
+      STATUS_OK_OR_RETURN(svc_close(sp));
       break;
     case SVC_READ:
-      STATUS_OK_OR_RETURN(read(sp));
+      STATUS_OK_OR_RETURN(svc_read(sp));
       break;
     case SVC_WRITE:
-      STATUS_OK_OR_RETURN(write(sp));
+      STATUS_OK_OR_RETURN(svc_write(sp));
+      break;
+    case SVC_LSEEK:
+      STATUS_OK_OR_RETURN(svc_lseek(sp));
+      break;
+    case SVC_EXECV:
+      STATUS_OK_OR_RETURN(svc_execv(sp));
       break;
     default:
       SYS_LOGE("undefined svc: %#x", svc);
