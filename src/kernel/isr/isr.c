@@ -4,10 +4,11 @@
 #include "uart.h"
 #include "sys_log.h"
 #include "util.h"
+#include "svc.h"
 
 #define LED_PIN 16
 
-extern void _kernel_context_switch(uint32_t prev_stack_pointer);
+extern void _software_interrupt_return(uint32_t stack_pointer);
 extern void _mmu_disable();
 
 void __attribute__((interrupt("UNDEF"))) undefined_instruction_handler(uint32_t spsr, uint32_t lr){
@@ -21,18 +22,25 @@ void __attribute__((interrupt("UNDEF"))) undefined_instruction_handler(uint32_t 
 }
 
 void software_interrupt_handler(uint32_t sp){
-  asm inline ("cpsie i");
-  SYS_LOG("SOFTWARE INTERRUPT");
-  /*
-  SYS_LOG("prev: sp=%#x, lr=%#x, spsr=%#x", sp, *((uint32_t*)(sp + 4)), *((uint32_t*)sp));
-  SYS_LOG("new: sp=%#x, lr=%#x, spsr=%#x", APP_STACK, *((uint32_t*)(APP_STACK + 1)), *(APP_STACK));
-  _kernel_context_switch((uint32_t)APP_STACK); 
-  */
-  while(1){
-    gpio_pulse(LED_PIN, 1);
-    sys_timer_sleep(1000000);
+  uint32_t lr1;
+  GET_LR(lr1);
+  SYS_LOGD("lr: %#x");
+  SYS_LOGD("SOFTWARE INTERRUPT");
+  
+  uint32_t spsr = *((uint32_t*)sp);
+  uint32_t lr = *((uint32_t*)(sp + 4));
+  uint32_t svc = (*((uint32_t*)(lr - 4))) & 0xffffff;
+  SYS_LOGD("prev: sp=%#x, lr=%#x, spsr=%#x, svc=%#x", sp, lr, spsr, svc);
+
+  if(svc_handler((uint32_t*)(sp + 8), svc) != STATUS_OK){
+    SYS_LOGE("svc_handler failed");
+    while(1){
+      gpio_pulse(LED_PIN, 1);
+      sys_timer_sleep(1000000);
+    }
   }
-  while(1);
+  
+  _software_interrupt_return(sp);
 }
 
 void __attribute__((interrupt("ABORT"))) prefetch_abort_handler(void){
@@ -45,9 +53,9 @@ void __attribute__((interrupt("ABORT"))) prefetch_abort_handler(void){
   }
 }
 
-void __attribute__((interrupt("ABORT"))) data_abort_handler(void){
+void data_abort_handler(uint32_t lr){
   asm inline("cpsie i");
-  SYS_LOG("DATA ABORT");
+  SYS_LOG("DATA ABORT: %#x", lr);
   while(1){
     gpio_pulse(LED_PIN, 4);
     sys_timer_sleep(1000000);

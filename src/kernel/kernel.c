@@ -28,6 +28,7 @@ extern void _enable_interrupts(void);
 
 int kernel_init(void) __attribute__((naked)) __attribute__((section(".text.boot.kernel")));
 
+/*
 void setup_app_stack(){
   APP_STACK = (uint32_t*)0x8000;
   *(--APP_STACK) = 0xDEADBEEF; // app lr
@@ -48,62 +49,61 @@ void setup_app_stack(){
   *(--APP_STACK) = 0x60000110; // SPSR
 
 }
+*/
 
 int kernel_start(){
   gpio_func(LED_PIN, GPIO_OUTPUT); 
-  uart_init(3000000);
+  uart_init(115200);
   _enable_interrupts();
 
   fat_init();
 
+  sys_timer_sleep(1000);
   SYS_LOGV("starting predOS (v%s)", VERSION);
-  SYS_LOGV("stdout: %#x, stdin: %#x, stderr: %#x", stdout, stdin, stderr);
-
-  sys_timer_sleep(1000000);
-  int big_fd = open("big.txt", O_RDWR | O_CREAT);
-  if(big_fd == -1){
+  printf("hello world\n");
+  int fd = open("config.txt", O_RDWR); 
+  if(fd == -1){
     SYS_LOGE("open failed");
     exit(-1);
   }
- 
-  int bytes_read;
-  char buf[BUF_SIZE];
-  if(read(big_fd, buf, BUF_SIZE) == -1){
+  SYS_LOGV("open done, fd=%d", fd);
+
+  char buf[9];
+  int bytes_read = read(fd, buf, 8);
+  if(bytes_read == -1){
     SYS_LOGE("read failed");
     exit(-1);
   }
+
+  buf[8] = '\0';
+  SYS_LOGV("read: %s", buf);
+
+  if(close(fd) != 0){
+    SYS_LOGE("close failed");
+    exit(-1);
+  }
+  SYS_LOGV("close done");
 
   int log_fd = open("log.txt", O_RDWR | O_CREAT);
-  if(write(log_fd, buf, BUF_SIZE) == -1){
+  if(log_fd == -1){
+    SYS_LOGE("open failed");
+    exit(-1);
+  }
+  SYS_LOGV("open done, fd=%d", fd);
+
+  char log_buf[] = "log things";
+  int bytes_written = write(log_fd, log_buf, sizeof(log_buf));
+  if(bytes_written == -1){
     SYS_LOGE("write failed");
     exit(-1);
   }
 
-  if(read(big_fd, buf, 600) == -1){
-    SYS_LOGE("read failed");
-    exit(-1);
-  }
-
-  if(close(log_fd) == -1){
+  if(close(log_fd) != 0){
     SYS_LOGE("close failed");
     exit(-1);
   }
-  log_fd = open("log.txt", O_RDWR | O_CREAT);
-  
-  if(write(log_fd, buf, 600) == -1){
-    SYS_LOGE("write failed");
-    exit(-1);
-  }
+  SYS_LOGV("close done");
 
-  if(close(log_fd) == -1){
-    SYS_LOGE("close failed");
-    exit(-1);
-  }
-
-  if(close(big_fd) == -1){
-    SYS_LOGE("close failed");
-    exit(-1);
-  }
   while(1);
 }
 

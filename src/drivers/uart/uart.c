@@ -177,9 +177,10 @@ status_t uart_irq_handler(){
 
 
 status_t uart_print(char* c, int len){
+  while((ud.tx_size + len) > UART_TX_BUFFER_SIZE); 
   for(int i = 0; i < len; i = ++i){
     ud.tx_buf[(i + ud.tx_indx + ud.tx_size) % UART_TX_BUFFER_SIZE] = c[i]; 
-  }
+  } 
   ud.tx_size += len;
   AUX->MINI_UART_IRQ_ENABLE |= AUX_MINI_UART_IRQ_ENABLE_TRANSMIT;
   return STATUS_OK;

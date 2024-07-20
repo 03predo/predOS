@@ -130,6 +130,9 @@ mcopy -v -i ${fat} ${scriptdir}/../firmware/boot/${fixupfile}  ::${fixupfile}
 mcopy -v -i ${fat} ${scriptdir}/../firmware/boot/${startfile}  ::${startfile}
 mcopy -v -i ${fat} ${tmpcfg}                                             ::config.txt
 
+dd bs=512 if="${mbr}" of="${disk_image}" count=2048
+cat ${fat} >> "${disk_image}"
+
 # rm -f ${fat}
 # rm -f ${mbr}
 rm -f ${tmpcfg}

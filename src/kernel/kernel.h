@@ -1,4 +1,8 @@
 #pragma once
 
-uint32_t* KERNEL_STACK;
-uint32_t* APP_STACK;
+#include "util.h"
+
+#define SVC_OPEN    0x00
+#define SVC_CLOSE   0x01
+#define SVC_READ    0x02
+#define SVC_WRITE   0x03
