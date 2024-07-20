@@ -220,15 +220,13 @@ int kernel_execv(const char *pathname, char *const argv[]){
 
 int kernel_start(){
   gpio_func(LED_PIN, GPIO_OUTPUT); 
-  uart_init(115200);
+  uart_init(1953125);
   _enable_interrupts();
   fat_init();
-
   mmu_frame_table_init();
-
   sys_timer_sleep(1000);
   SYS_LOGI("starting predOS (v%s)", VERSION); 
-  printf("hello world\n");
+  printf("message 2\n");
 
   char *args[]={"example",NULL};
   execv(args[0], args);

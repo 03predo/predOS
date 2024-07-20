@@ -148,7 +148,7 @@ status_t uart_irq_handler(){
         if(ud.received_bytes == EMMC_BLOCK_SIZE){
           ud.received_bytes = 0;
           ud.received_blocks++;
-
+          uart_print("\n", 1);
           if(ud.received_blocks >= ud.image_header.fields.image_size){
             ud.state = STANDBY;
 
