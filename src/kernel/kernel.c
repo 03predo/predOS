@@ -246,7 +246,7 @@ int kernel_start(){
   sys_timer_sleep(1000);
   SYS_LOGI("starting predOS (v%s)", VERSION); 
 
-  char *args[]={"example", "hello", "world", NULL};
+  char *args[]={"echo", "hello", "world", NULL};
   SYS_LOGI("args: %#x", args);
   execv(args[0], args);
   while(1);
