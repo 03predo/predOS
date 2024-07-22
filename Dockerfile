@@ -15,6 +15,7 @@ RUN apt-get install \
     dosfstools \
     bsdmainutils \
     man-db \
+    socat \
     pip -y && \
     python3 -m pip install gcovr
 
@@ -49,6 +50,16 @@ ARG ARM_SOURCE=https://armkeil.blob.core.windows.net/developer/Files/downloads/g
 RUN curl --fail -o /$ARM_ARCHIVE $ARM_SOURCE 
 RUN tar -C / -xf /$ARM_ARCHIVE && rm -rf /$ARM_ARCHIVE
 
+RUN mkdir /clip && \
+    echo "for i in \"\$@\"\ndo\n  case \"\$i\" in\n  (-i|--input|-in)\n    tee <&0 | socat - tcp:host.docker.internal:8121\n    exit 0\n    ;;\n  esac\ndone" > /clip/clip.sh && \
+    chmod +x /clip/clip.sh && \
+    ln -s /clip/clip.sh /clip/xsel && \
+    ln -s /clip/clip.sh /clip/xclip
+
+ENV PATH="$PATH:/clip"
+ENV DISPLAY=0
+
 WORKDIR root
 
 RUN echo 'alias m="make"' > .bash_aliases
+
