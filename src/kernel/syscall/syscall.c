@@ -53,7 +53,7 @@ int execv(const char *pathname, char *const argv[]){
 }
 
 void _exit(int status){
-  (void)status;
+  asm inline("SVC "XSTR(SVC_EXIT)); 
   while(1);
 }
 

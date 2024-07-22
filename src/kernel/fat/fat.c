@@ -407,7 +407,6 @@ status_t fat_get_absolute_cluster(fat_directory_entry_t* dir_entry, uint32_t fil
     STATUS_OK_OR_RETURN(emmc_read_block(fat.partition_base_sector + fat.fat_base_sector + fat_sector_offset, 1, &block));
     fat_block = (uint16_t*)block.buf;
     *absolute_cluster = fat_block[fat_entry_offset];
-    SYS_LOGD("fat_entry_offset: %#x, absolute_cluster: %#x", fat_entry_offset, *absolute_cluster);
   }
  
   return STATUS_OK;

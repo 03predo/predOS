@@ -8,6 +8,7 @@
 #define SVC_WRITE   0x03
 #define SVC_LSEEK   0x04
 #define SVC_EXECV   0x05
+#define SVC_EXIT    0x06
 
 
 int kernel_open(const char *pathname, int flags);

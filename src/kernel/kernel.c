@@ -64,7 +64,7 @@ int kernel_open(const char *pathname, int flags){
 }
 
 int kernel_close(int file){
-  if(fat_close_file(file) != STATUS_OK){
+  if((file > 2) && (fat_close_file(file) != STATUS_OK)){
     SYS_LOGD("fat_close_file failed");
     return -1;
   }
@@ -101,8 +101,23 @@ int kernel_lseek(int file, int offset, int whence){
 }
 
 int kernel_execv(const char *pathname, char *const argv[]){
-  SYS_LOGI("filename: %s", pathname);
+  SYS_LOGI("filename: %s, arg[1]: %s", pathname, argv[1]);
 
+  uint32_t arg_num = 0;
+  while(argv[arg_num] != NULL){
+    arg_num++;
+  }
+  SYS_LOGI("arg_num: %d", arg_num);
+  char** app_argv = malloc(sizeof(char*)*(arg_num + 1));
+  if(app_argv == NULL) return -1;
+  for(uint32_t i = 0; i < arg_num; ++i){
+    app_argv[i] = malloc(sizeof(char)*(strlen(argv[i]) + 1));
+    if(app_argv == NULL) return -1;
+    if(strcpy(app_argv[i], argv[i]) == NULL) return -1;
+    SYS_LOGI("app_argv[%d]: %s", i, app_argv[i]);
+  }
+  app_argv[arg_num] = NULL; 
+  
   uint32_t text_frame;
   if(mmu_allocate_frame(&text_frame) != STATUS_OK){
     SYS_LOGE("failed to allocate frame");
@@ -192,13 +207,17 @@ int kernel_execv(const char *pathname, char *const argv[]){
       .small_page_base = SMALL_PAGE_BASE(text_frame),
     }
   };
-  uint32_t* instruction = (uint32_t*)0x8000;
+
   for(int i = 0; i < (256 - SMALL_PAGE_BASE(0x8000)); ++i){
     small_page.fields.small_page_base = SMALL_PAGE_BASE(text_frame) + i;
     mmu_root_coarse_page_table_set_entry(SMALL_PAGE_BASE(0x8000) + i, small_page);
   }
+  uint32_t* instruction = (uint32_t*)0x8128;
+  SYS_LOGI("instruction: %#x", *instruction);
+  SYS_LOGI("app_argv: %#x", app_argv);
+  
   uint32_t* app_stack = (uint32_t*)(stack_frame + 0x100000);
-  *(--app_stack) = 0xDEADBEEF; // app lr
+  *(--app_stack) = (uint32_t)_exit; // lr
   *(--app_stack) = 0xDEADBEEF; // r12
   *(--app_stack) = 0xDEADBEEF; // r11
   *(--app_stack) = 0xDEADBEEF; // r10
@@ -211,7 +230,7 @@ int kernel_execv(const char *pathname, char *const argv[]){
   *(--app_stack) = 0xDEADBEEF; // r3
   *(--app_stack) = 0xDEADBEEF; // r2
   *(--app_stack) = 0xDEADBEEF; // r1
-  *(--app_stack) = 0xDEADBEEF; // r0
+  *(--app_stack) = (uint32_t)app_argv; // r0
   *(--app_stack) = (uint32_t)0x8000; // context switch lr
   *(--app_stack) = 0x60000110; // SPSR
   _software_interrupt_return((uint32_t)app_stack);
@@ -220,15 +239,15 @@ int kernel_execv(const char *pathname, char *const argv[]){
 
 int kernel_start(){
   gpio_func(LED_PIN, GPIO_OUTPUT); 
-  uart_init(1953125);
+  uart_init(115200);
   _enable_interrupts();
   fat_init();
   mmu_frame_table_init();
   sys_timer_sleep(1000);
   SYS_LOGI("starting predOS (v%s)", VERSION); 
-  printf("message 2\n");
 
-  char *args[]={"example",NULL};
+  char *args[]={"example", "hello", "world", NULL};
+  SYS_LOGI("args: %#x", args);
   execv(args[0], args);
   while(1);
 }

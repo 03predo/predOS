@@ -31,7 +31,3 @@ docker run -id -v $PWD/:/root/predOS --name predos 03predo/predos:v1.1
 ```
 docker exec -it predos bash
 ```
-
-todo:
-docker container use latest nvimSetup
-add git config --global core.autocrlf true
