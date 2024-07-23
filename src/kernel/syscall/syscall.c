@@ -7,7 +7,7 @@ extern int errno;
 
 #include "kernel.h"
 
-#define HEAP_ADDR 0x1fe00000
+#define HEAP_ADDR 0x1f000000
 
 char *__env[1] = {0};
 char **environ = __env;

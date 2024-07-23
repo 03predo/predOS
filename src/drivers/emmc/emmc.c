@@ -125,7 +125,6 @@ status_t emmc_command_fields(emmc_command_index_t command_index, emmc_command_t*
       return STATUS_ERR;
   }
   return STATUS_OK;
-  return STATUS_OK;
 }
 
 status_t emmc_app_command_fields(emmc_app_command_t app_command, emmc_command_t* command,
@@ -260,14 +259,28 @@ status_t emmc_read_block(uint32_t start_block_address, uint16_t num_blocks, emmc
   if(emmc_send_command(READ_MULTIPLE_BLOCK, arg, &resp) != STATUS_OK) return STATUS_ERR;
 
   emmc_interrupt_t interrupt = {0};
-  interrupt.raw = EMMC->INTERRUPT;
-  while(!interrupt.fields.read_ready) interrupt.raw = EMMC->INTERRUPT;
-  sys_timer_sleep(100);
 
   for(uint32_t i = 0; i < num_blocks; ++i){
+    while(!interrupt.fields.read_ready) interrupt.raw = EMMC->INTERRUPT;
+    EMMC->INTERRUPT |= 0xffffffff;
+    while(interrupt.fields.read_ready) interrupt.raw = EMMC->INTERRUPT;
+    EMMC->INTERRUPT |= 0xffffffff;
     for(uint32_t j = 0; j < (EMMC_BLOCK_SIZE / sizeof(uint32_t)); j++){
-      block[i].buf[j] = EMMC->DATA;    
+      block[i].buf[j] = EMMC->DATA;
     }
+  }
+
+  interrupt = (emmc_interrupt_t){0};
+  for(uint32_t i = 0; i < 100000; ++i){
+    interrupt.raw = EMMC->INTERRUPT;
+    if(interrupt.fields.data_done) break;
+    SYS_LOGE("IRPT: %#x, STATUS: %#x", EMMC->INTERRUPT, EMMC->STATUS);
+    sys_timer_sleep(5);
+  }
+
+  if(!interrupt.fields.data_done){
+    SYS_LOGE("data not done: %#x", EMMC->INTERRUPT);
+    return STATUS_ERR;
   }
   return STATUS_OK;
 }

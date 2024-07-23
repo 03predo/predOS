@@ -8,7 +8,7 @@
 #define KERNEL_STACK_ADDR        0x1ff00000
 #define PERIPHERAL_PHYSICAL_ADDR 0x20000000
 #define PERIPHERAL_VIRTUAL_ADDR  PERIPHERAL_BASE
-#define HEAP_ADDR                0x1fe00000
+#define HEAP_ADDR                0x1f000000
 
 #define KERNEL_LOAD_ADDR              0x8000
 #define SYSTEM_PAGE_TABLE_ADDR        0x4000
@@ -73,6 +73,7 @@ status_t mmu_init(){
 
   section.fields.section_base = SECTION_BASE(KERNEL_STACK_ADDR);
   system_page_table[SECTION_BASE(KERNEL_STACK_ADDR)] = section.raw;
+
   section.fields.section_base = SECTION_BASE(HEAP_ADDR);
   system_page_table[SECTION_BASE(HEAP_ADDR)] = section.raw;
  
@@ -398,7 +399,8 @@ status_t mmu_frame_table_init(){
   }
   system_frame_table[0] = 1; // kernel text
   system_frame_table[0x1ff] = 1; // kernel stack
-  system_frame_table[0x1fe] = 1; // kernel stack
+  system_frame_table[0x1f0] = 1; // kernel heap
+  return STATUS_OK;
 }
 
 status_t mmu_allocate_frame(uint32_t* frame){

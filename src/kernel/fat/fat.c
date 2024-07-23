@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
@@ -122,6 +123,42 @@ status_t fat_print_bpb(){
   return STATUS_OK;
 }
 
+status_t fat_print_cluster_table(){
+  bios_parameter_block_t* bpb = &fat.bs16.fields.bpb;
+  uint16_t* sec = (uint16_t*)fat.sectors[0].buf;
+  for(uint32_t i = 0; i < bpb->fat_sector_count_16bit; ++i){
+    for(uint32_t j = 0; j < 16; ++j){
+      LOGI("%#06x  ", 512*i + j*16);
+      for(uint32_t k = 0; k < 16; ++k){
+        LOGI("%#06x ", sec[j*16 + k]);
+      }
+      LOGI("\n");
+    } 
+    LOGI("\n");
+  }
+  return STATUS_OK;
+}
+
+status_t fat_read_cluster_table(){
+  bios_parameter_block_t* bpb = &fat.bs16.fields.bpb;
+  fat.sectors = (emmc_block_t*)malloc(sizeof(emmc_block_t)*bpb->fat_sector_count_16bit);
+  if(fat.sectors == NULL) return STATUS_ERR;
+  STATUS_OK_OR_RETURN(emmc_read_block(fat.partition_base_sector + fat.fat_base_sector, bpb->fat_sector_count_16bit, fat.sectors));
+  return STATUS_OK;
+}
+
+status_t fat_write_cluster_table(){
+  bios_parameter_block_t* bpb = &fat.bs16.fields.bpb;
+  if(fat.sectors == NULL) return STATUS_ERR;
+  STATUS_OK_OR_RETURN(emmc_write_block(fat.partition_base_sector + fat.fat_base_sector, bpb->fat_sector_count_16bit, fat.sectors));
+  return STATUS_OK;
+}
+
+status_t fat_free_cluster_table(){
+  free(fat.sectors);
+  return STATUS_OK;
+}
+
 status_t fat_init(){
   STATUS_OK_OR_RETURN(emmc_init());
 
@@ -199,6 +236,9 @@ status_t fat_init(){
   for(uint32_t i = 0; i < MAX_OPEN_FILES; ++i){
     system_inode_table[i].dir_entry.name[0] = 0;
   }
+
+  STATUS_OK_OR_RETURN(fat_read_cluster_table());
+
   return STATUS_OK;
 }
 
@@ -432,7 +472,7 @@ status_t fat_append_cluster(fat_directory_entry_t* dir_entry){
   return STATUS_OK;
 }
 
-status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_number, emmc_block_t* block){
+status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_number, uint32_t num_blocks, emmc_block_t* block){
   bios_parameter_block_t* bpb = &fat.bs16.fields.bpb;
   uint32_t cluster_offset = file_block_number / bpb->sectors_per_cluster;
   uint32_t sector_offset = file_block_number % bpb->sectors_per_cluster;
@@ -443,7 +483,7 @@ status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_nu
   uint32_t absolute_sector = fat.partition_base_sector + fat.data_base_sector + (absolute_cluster - 2) * bpb->sectors_per_cluster + sector_offset;
   SYS_LOGD("absolute sector: %#x", absolute_sector);
 
-  STATUS_OK_OR_RETURN(emmc_read_block(absolute_sector, 1, block));
+  STATUS_OK_OR_RETURN(emmc_read_block(absolute_sector, num_blocks, block));
   return STATUS_OK;
 }
 
@@ -561,7 +601,7 @@ status_t fat_read_file(int fd, char *buf, int len, int* bytes_read){
   uint32_t buf_offset = 0;
   emmc_block_t block;
   for(uint32_t i = 0; i <= block_num; ++i){
-    STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + i, &block)); 
+    STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + i, 1, &block)); 
     if(i == 0){
       uint32_t memcpy_size = len < (EMMC_BLOCK_SIZE - block_index) ? len : EMMC_BLOCK_SIZE - block_index;
       uint8_t* block_buf = (uint8_t*) block.buf;
@@ -600,7 +640,7 @@ status_t fat_write_file(int fd, char* buf, int len, int* bytes_written){
   uint32_t buf_offset = 0;
   emmc_block_t block;
 
-  STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset, &block)); 
+  STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset, 1, &block)); 
   uint32_t memcpy_size = len < (EMMC_BLOCK_SIZE - block_index) ? len : EMMC_BLOCK_SIZE - block_index;
   uint8_t* block_buf = (uint8_t*) block.buf;
   memcpy(block_buf + block_index, buf, memcpy_size);
@@ -623,7 +663,7 @@ status_t fat_write_file(int fd, char* buf, int len, int* bytes_written){
     if(i == block_num){
       memset(block.buf, 0, EMMC_BLOCK_SIZE);
       if(inode->file_offset < inode->file_offset){ 
-        STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + i, &block)); 
+        STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + i, 1, &block)); 
       }
       if(((len % EMMC_BLOCK_SIZE) + block_index) > EMMC_BLOCK_SIZE){
         memcpy(block.buf, &buf[buf_offset], (len % EMMC_BLOCK_SIZE) - (EMMC_BLOCK_SIZE - block_index));

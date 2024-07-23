@@ -8,7 +8,7 @@
 
 #define LED_PIN 16
 
-extern void _software_interrupt_return(uint32_t stack_pointer);
+extern void _kernel_context_switch(uint32_t stack_pointer);
 extern void _mmu_disable();
 
 void __attribute__((interrupt("UNDEF"))) undefined_instruction_handler(uint32_t spsr, uint32_t lr){
@@ -38,7 +38,7 @@ void software_interrupt_handler(uint32_t sp){
     }
   }
   
-  _software_interrupt_return(sp);
+  _kernel_context_switch(sp);
 }
 
 void __attribute__((interrupt("ABORT"))) prefetch_abort_handler(void){

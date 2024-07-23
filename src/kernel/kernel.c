@@ -24,36 +24,10 @@
 
 extern int __bss_start__;
 extern int __bss_end__;
-extern void _enable_interrupts(void);
 
-static uint32_t* APP_STACK = (uint32_t*)0x1fe00000;
+extern void _kernel_context_switch(uint32_t stack_pointer);
 
 int kernel_init(void) __attribute__((naked)) __attribute__((section(".text.boot.kernel")));
-extern void _software_interrupt_return(uint32_t stack_pointer);
-
-
-/*
-void setup_app_stack(){
-  APP_STACK = (uint32_t*)0x8000;
-  *(--APP_STACK) = 0xDEADBEEF; // app lr
-  *(--APP_STACK) = 0xDEADBEEF; // r12
-  *(--APP_STACK) = 0xDEADBEEF; // r11
-  *(--APP_STACK) = 0xDEADBEEF; // r10
-  *(--APP_STACK) = 0xDEADBEEF; // r9
-  *(--APP_STACK) = 0xDEADBEEF; // r8
-  *(--APP_STACK) = 0xDEADBEEF; // r7
-  *(--APP_STACK) = 0xDEADBEEF; // r6
-  *(--APP_STACK) = 0xDEADBEEF; // r5
-  *(--APP_STACK) = 0xDEADBEEF; // r4
-  *(--APP_STACK) = 0xDEADBEEF; // r3
-  *(--APP_STACK) = 0xDEADBEEF; // r2
-  *(--APP_STACK) = 0xDEADBEEF; // r1
-  *(--APP_STACK) = 0xDEADBEEF; // r0
-  //*(--APP_STACK) = (uint32_t)example_main; // context switch lr
-  *(--APP_STACK) = 0x60000110; // SPSR
-
-}
-*/
 
 int kernel_open(const char *pathname, int flags){
   int fd = -1;
@@ -233,22 +207,23 @@ int kernel_execv(const char *pathname, char *const argv[]){
   *(--app_stack) = (uint32_t)app_argv; // r0
   *(--app_stack) = (uint32_t)0x8000; // context switch lr
   *(--app_stack) = 0x60000110; // SPSR
-  _software_interrupt_return((uint32_t)app_stack);
+  _kernel_context_switch((uint32_t)app_stack);
   while(1);
 }
 
 int kernel_start(){
-  gpio_func(LED_PIN, GPIO_OUTPUT); 
-  uart_init(115200);
-  _enable_interrupts();
-  fat_init();
-  mmu_frame_table_init();
+  if(gpio_func(LED_PIN, GPIO_OUTPUT) != STATUS_OK) exit(-1);
+  if(uart_init(115200) != STATUS_OK) exit(-1);
+  if(fat_init() != STATUS_OK) exit(-1); 
+  if(mmu_frame_table_init() != STATUS_OK) exit(-1);
+
   sys_timer_sleep(1000);
   SYS_LOGI("starting predOS (v%s)", VERSION); 
 
   char *args[]={"echo", "hello", "world", NULL};
   SYS_LOGI("args: %#x", args);
   execv(args[0], args);
+  
   while(1);
 }
 
