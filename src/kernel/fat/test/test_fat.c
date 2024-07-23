@@ -27,6 +27,7 @@ status_t fat_find_free_cluster(uint32_t* cluster);
 status_t fat_get_absolute_cluster(fat_directory_entry_t* dir_entry, uint32_t file_cluster_offset, uint32_t* absolute_cluster);
 status_t fat_read_file(int fd, char *buf, int len, int* bytes_read);
 status_t fat_free_cluster_table();
+status_t fat_read_cluster_table();
 
 uint32_t* disk = NULL;
 boot_sector_fat32_t* bs32 = NULL;
@@ -333,16 +334,19 @@ void test_fat_find_free_cluster(){
   emmc_init_Stub(mock_emmc_init_stub0);
   emmc_read_block_Stub(mock_emmc_read_block_stub7);
   emmc_write_block_Stub(mock_emmc_write_block_stub0); 
-  TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
 
-  printf("%#x, %#x\n", bs32->fields.bpb.root_entry_count, bs32->fields.bpb.bytes_per_sector);
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
+  printf("%#x, %#x, %#x\n", bs32->fields.bpb.root_entry_count, bs32->fields.bpb.bytes_per_sector, bs32->fields.bpb.fat_sector_count_16bit);
   emmc_block_t block;
   memset(&block, 0xff, sizeof(emmc_block_t));
   for(uint32_t i = 0; i < bs32->fields.bpb.fat_sector_count_16bit; ++i){
     mock_emmc_write_block(PARTITION_BASE_SEC + FAT_BASE_SEC + i, 1, &block);
   }
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_read_cluster_table()); 
 
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_find_free_cluster(&cluster));
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_create_file(){
@@ -547,6 +551,7 @@ void test_fat_write_file(){
 
   TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_RDONLY, &fd)); 
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_write_file(fd, buf, 10, &bytes_written));
+
   TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
@@ -570,4 +575,3 @@ void test_fat_seek_file(){
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_seek_file(fd, 1, 0xff, &new_offset));
   TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
-

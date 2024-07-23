@@ -141,8 +141,11 @@ status_t fat_print_cluster_table(){
 
 status_t fat_read_cluster_table(){
   bios_parameter_block_t* bpb = &fat.bs16.fields.bpb;
+  SYS_LOGI("malloc size: %ld", sizeof(emmc_block_t)*bpb->fat_sector_count_16bit);
   fat.sectors = (emmc_block_t*)malloc(sizeof(emmc_block_t)*bpb->fat_sector_count_16bit);
   if(fat.sectors == NULL) return STATUS_ERR;
+
+  SYS_LOGI("%#x, %#x", fat.partition_base_sector, fat.fat_base_sector);
   STATUS_OK_OR_RETURN(emmc_read_block(fat.partition_base_sector + fat.fat_base_sector, bpb->fat_sector_count_16bit, fat.sectors));
   return STATUS_OK;
 }
@@ -377,17 +380,13 @@ status_t fat_find_free_cluster(uint32_t* cluster){
   bios_parameter_block_t bpb = fat.bs16.fields.bpb;
   emmc_block_t block;
   SYS_LOGD("sector_count: %d", bpb.fat_sector_count_16bit);
-  for(uint32_t i = 0; i < bpb.fat_sector_count_16bit; ++i){
-    emmc_read_block(fat.partition_base_sector + fat.fat_base_sector + i, 1, &block);
-    uint16_t* fat_block = (uint16_t*)block.buf;
-    for(uint32_t j = 0; j < (EMMC_BLOCK_SIZE / sizeof(uint16_t)); ++j){
-      if(fat_block[j] == 0x0){
-        *cluster = j + i * (EMMC_BLOCK_SIZE / sizeof(uint16_t));
-        SYS_LOGD("free cluster: %d", *cluster);
-        fat_block[j] = 0xffff;
-        STATUS_OK_OR_RETURN(emmc_write_block(fat.partition_base_sector + fat.fat_base_sector + i, 1, &block));
-        return STATUS_OK;
-      }
+  uint16_t* fat_block = (uint16_t*)fat.sectors;
+  for(uint32_t i = 0; i < bpb.fat_sector_count_16bit * (EMMC_BLOCK_SIZE / sizeof(uint16_t)); ++i){
+    if(fat_block[i] == 0x0){
+      *cluster = i;
+      SYS_LOGI("free cluster: %d", *cluster);
+      fat_block[i] = 0xffff;
+      return STATUS_OK;
     }
   }
 
@@ -433,20 +432,19 @@ status_t fat_get_absolute_cluster(fat_directory_entry_t* dir_entry, uint32_t fil
   uint32_t file_first_cluster = dir_entry->first_cluster_low + (dir_entry->first_cluster_high << 16);
   SYS_LOGD("first_cluster: %d", file_first_cluster);
   emmc_block_t block;
-  uint16_t* fat_block;
+  uint16_t* fat_block = (uint16_t*)fat.sectors;
   uint32_t fat_sector_offset = 0;
   uint32_t fat_entry_offset = 0;
   *absolute_cluster = file_first_cluster;
   for(uint32_t i = 0; i < file_cluster_offset; ++i){
     if(*absolute_cluster == 0xffff){
-      SYS_LOGD("file ended too early: i = %d", i);
+      SYS_LOGE("file ended too early: i = %d", i);
+      return STATUS_ERR;
+    }else if(*absolute_cluster >= (fat.bs16.fields.bpb.fat_sector_count_16bit*(EMMC_BLOCK_SIZE / sizeof(uint16_t)))){
+      SYS_LOGE("absolute_cluster past size of fat: %#x", *absolute_cluster);
       return STATUS_ERR;
     }
-    fat_sector_offset = *absolute_cluster / (EMMC_BLOCK_SIZE / sizeof(uint16_t));
-    fat_entry_offset = *absolute_cluster  % (EMMC_BLOCK_SIZE / sizeof(uint16_t));
-    STATUS_OK_OR_RETURN(emmc_read_block(fat.partition_base_sector + fat.fat_base_sector + fat_sector_offset, 1, &block));
-    fat_block = (uint16_t*)block.buf;
-    *absolute_cluster = fat_block[fat_entry_offset];
+    *absolute_cluster = fat_block[*absolute_cluster];
   }
  
   return STATUS_OK;
@@ -462,13 +460,8 @@ status_t fat_append_cluster(fat_directory_entry_t* dir_entry){
   STATUS_OK_OR_RETURN(fat_get_absolute_cluster(dir_entry, cluster_offset - 1, &absolute_cluster));
   SYS_LOGD("absolute cluster: %d", absolute_cluster);
 
-  uint32_t fat_sector_offset = absolute_cluster / (EMMC_BLOCK_SIZE / sizeof(uint16_t));
-  uint32_t fat_entry_offset = absolute_cluster  % (EMMC_BLOCK_SIZE / sizeof(uint16_t));
-  emmc_block_t block;
-  STATUS_OK_OR_RETURN(emmc_read_block(fat.partition_base_sector + fat.fat_base_sector + fat_sector_offset, 1, &block));
-  uint16_t* fat_block = (uint16_t*)block.buf;
-  fat_block[fat_entry_offset] = free_cluster;
-  STATUS_OK_OR_RETURN(emmc_write_block(fat.partition_base_sector + fat.fat_base_sector + fat_sector_offset, 1, &block));
+  uint16_t* fat_block = (uint16_t*)fat.sectors;
+  fat_block[absolute_cluster] = free_cluster;
   return STATUS_OK;
 }
 
