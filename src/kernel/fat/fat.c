@@ -589,27 +589,27 @@ status_t fat_read_file(int fd, char *buf, int len, int* bytes_read){
   uint32_t block_num = len / EMMC_BLOCK_SIZE;
   if(((len % EMMC_BLOCK_SIZE) + block_index) > EMMC_BLOCK_SIZE) block_num++;
 
-  SYS_LOGD("file_offset: %d, block_offset: %d, block_num: %d", inode->file_offset, block_offset, block_num);
+  SYS_LOGI("file_offset: %d, block_offset: %d, block_num: %d", inode->file_offset, block_offset, block_num);
   
   uint32_t buf_offset = 0;
   emmc_block_t block;
-  for(uint32_t i = 0; i <= block_num; ++i){
-    STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + i, 1, &block)); 
-    if(i == 0){
-      uint32_t memcpy_size = len < (EMMC_BLOCK_SIZE - block_index) ? len : EMMC_BLOCK_SIZE - block_index;
-      uint8_t* block_buf = (uint8_t*) block.buf;
-      memcpy(buf, block_buf + block_index, memcpy_size);
-      buf_offset = memcpy_size;
-    }else if(i == block_num){
-      if(((len % EMMC_BLOCK_SIZE) + block_index) > EMMC_BLOCK_SIZE){
-        memcpy(&buf[buf_offset], block.buf, (len % EMMC_BLOCK_SIZE) - (EMMC_BLOCK_SIZE - block_index));
-      }else{
-        memcpy(&buf[buf_offset], block.buf, (len % EMMC_BLOCK_SIZE) + block_index);
-      }
-    }else{
-      memcpy(&buf[buf_offset], block.buf, EMMC_BLOCK_SIZE);
-      buf_offset += EMMC_BLOCK_SIZE;
-    }
+
+  STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset, 1, &block));      
+  uint32_t memcpy_size = len < (EMMC_BLOCK_SIZE - block_index) ? len : EMMC_BLOCK_SIZE - block_index;
+  uint8_t* block_buf = (uint8_t*) block.buf;
+  memcpy(buf, block_buf + block_index, memcpy_size);
+  buf_offset = memcpy_size;
+
+  if(block_num > 1){
+    STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + 1, block_num - 1, (emmc_block_t*)&buf[buf_offset])); 
+    buf_offset += EMMC_BLOCK_SIZE * (block_num - 1);
+  }
+
+  STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + block_num, 1, &block));      
+  if(((len % EMMC_BLOCK_SIZE) + block_index) > EMMC_BLOCK_SIZE){
+    memcpy(&buf[buf_offset], block.buf, (len % EMMC_BLOCK_SIZE) - (EMMC_BLOCK_SIZE - block_index));
+  }else{
+    memcpy(&buf[buf_offset], block.buf, (len % EMMC_BLOCK_SIZE) + block_index);
   }
 
   inode->file_offset += len;
