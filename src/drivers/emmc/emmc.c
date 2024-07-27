@@ -153,7 +153,7 @@ status_t emmc_reset_host_circuit(){
   c1.fields.clk_internal_clock_enable = 0;
   EMMC->CONTROL1 = c1.raw;
 
-  sys_timer_sleep(1000000);
+  sys_timer_sleep(1000);
 
   //check to make sure reset occured
   c1.raw = EMMC->CONTROL1;
@@ -186,7 +186,7 @@ status_t emmc_set_clock(uint32_t frequency_hz){
   c1.fields.data_timeout_unit_exponent = 7; // command timeout
   EMMC->CONTROL1 = c1.raw;
 
-  sys_timer_sleep(1000000);
+  sys_timer_sleep(1000);
 
   // check to make sure clock stabilized with new settings
   c1.raw = EMMC->CONTROL1;
