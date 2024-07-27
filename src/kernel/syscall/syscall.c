@@ -7,12 +7,16 @@ extern int errno;
 
 #include "kernel.h"
 
+#define HEAP_ADDR 0x1f000000
+
 char *__env[1] = {0};
 char **environ = __env;
 
-void _exit(int status){
-  (void)status;
-  while(1);
+int _open(const char *pathname, int flags){
+  asm inline("SVC "XSTR(SVC_OPEN));
+  int fd = -1;
+  GET_R0(fd);
+  return fd;
 }
 
 int _close(int file){
@@ -22,15 +26,35 @@ int _close(int file){
   return fd;
 }
 
-int _lseek(int file, int ptr, int dir){
-  return 0;
-}
-
 int _read(int file, char *ptr, int len){
   asm inline("SVC "XSTR(SVC_READ)); 
   int bytes_read = -1;
   GET_R0(bytes_read);
   return bytes_read;
+}
+
+int _write(int file, char *ptr, int len){
+  asm inline("SVC "XSTR(SVC_WRITE)); 
+  int bytes_written = -1;
+  GET_R0(bytes_written);
+  return bytes_written;
+}
+
+int _lseek(int file, int offset, int whence){
+  asm inline("SVC "XSTR(SVC_LSEEK)); 
+  int new_offset = -1;
+  GET_R0(new_offset);
+  return new_offset;
+}
+
+int execv(const char *pathname, char *const argv[]){
+  asm inline("SVC "XSTR(SVC_EXECV)); 
+  return -1;
+}
+
+void _exit(int status){
+  asm inline("SVC "XSTR(SVC_EXIT)); 
+  while(1);
 }
 
 int _isatty(int file){
@@ -44,7 +68,7 @@ int _fstat(int file, struct stat *st){
 
 caddr_t _sbrk(int incr){
   extern char _end;
-  static char* heap_end = 0;
+  static char* heap_end = (char*)HEAP_ADDR;
   char* prev_heap_end;
 
   if( heap_end == 0 ) heap_end = &_end;
@@ -57,18 +81,3 @@ caddr_t _sbrk(int incr){
 
 void outbyte(char b){
 }
-
-int _write(int file, char *ptr, int len){
-  asm inline("SVC "XSTR(SVC_WRITE)); 
-  int bytes_written = -1;
-  GET_R0(bytes_written);
-  return bytes_written;
-}
-
-int _open(const char *pathname, int flags){
-  asm inline("SVC "XSTR(SVC_OPEN));
-  int fd = -1;
-  GET_R0(fd);
-  return fd;
-}
-

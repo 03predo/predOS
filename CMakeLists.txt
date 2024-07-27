@@ -8,7 +8,7 @@ project(
 
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DVERSION=\\\"${PROJECT_VERSION}\\\"")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLOG_LEVEL=LOG_LEVEL_DEBUG")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLOG_LEVEL=LOG_LEVEL_INFO")
 
 if(PREDOS_TEST)
   set(IMG_DIR ${CMAKE_SOURCE_DIR}/build/img)
@@ -23,12 +23,8 @@ else()
   set(IMG_DIR ${CMAKE_BINARY_DIR}/img ) 
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
-
-  set(APP_C_FLAGS "${CMAKE_C_FLAGS}")
-  set(APP_LINKER_FLAGS "${APP_C_FLAGS}")
-
-  set(KERNEL_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles")
-  set(KERNEL_LINKER_FLAGS "${KERNEL_C_FLAGS} -T ${CMAKE_SOURCE_DIR}/cmake/link.ld")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles")
+  set(KERNEL_LINKER_FLAGS "-T ${CMAKE_SOURCE_DIR}/cmake/link.ld")
 endif()
 
 add_subdirectory(src)

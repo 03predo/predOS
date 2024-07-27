@@ -8,6 +8,7 @@
 #define KERNEL_STACK_ADDR        0x1ff00000
 #define PERIPHERAL_PHYSICAL_ADDR 0x20000000
 #define PERIPHERAL_VIRTUAL_ADDR  PERIPHERAL_BASE
+#define HEAP_ADDR                0x1f000000
 
 #define KERNEL_LOAD_ADDR              0x8000
 #define SYSTEM_PAGE_TABLE_ADDR        0x4000
@@ -15,10 +16,7 @@
 
 #define FIRST_LEVEL_PAGE_TABLE_SIZE 1024 // in 32bit words
 #define SECOND_LEVEL_PAGE_TABLE_SIZE 256 // in 32bit words
-
-#define SECTION_BASE(X) (X >> 20)
-#define COARSE_PAGE_TABLE_BASE(X) (X >> 10)
-#define SMALL_PAGE_BASE(X) (X >> 12)
+#define FRAME_TABLE_SIZE 0x200
 
 extern void _mmu_enable(uint32_t* page_table_base);
 extern void _mmu_invalidate_tlb();
@@ -26,6 +24,7 @@ status_t mmu_init(void) __attribute__((section(".text.boot.kernel")));
 
 static uint32_t* system_page_table = (uint32_t*) SYSTEM_PAGE_TABLE_ADDR;
 static uint32_t* root_coarse_page_table = (uint32_t*) ROOT_COARSE_PAGE_TABLE_ADDR; 
+static uint32_t system_frame_table[FRAME_TABLE_SIZE];
 
 status_t mmu_init(){
   for(uint32_t i = 0; i < FIRST_LEVEL_PAGE_TABLE_SIZE; ++i){
@@ -73,7 +72,10 @@ status_t mmu_init(){
   system_page_table[SECTION_BASE(KERNEL_VIRTUAL_ADDR)] = section.raw;
 
   section.fields.section_base = SECTION_BASE(KERNEL_STACK_ADDR);
-  system_page_table[SECTION_BASE(KERNEL_STACK_ADDR)] = section.raw; 
+  system_page_table[SECTION_BASE(KERNEL_STACK_ADDR)] = section.raw;
+
+  section.fields.section_base = SECTION_BASE(HEAP_ADDR);
+  system_page_table[SECTION_BASE(HEAP_ADDR)] = section.raw;
  
   // setup the root coarse page table, this will be the page table
   // responsible mapping the addresses from 0x00000000 - 0x00100000
@@ -108,13 +110,25 @@ status_t mmu_init(){
 
   small_page.fields.small_page_base = SMALL_PAGE_BASE(KERNEL_LOAD_ADDR);
   root_coarse_page_table[SMALL_PAGE_BASE(KERNEL_LOAD_ADDR)] = small_page.raw;
-
+  
   _mmu_enable(system_page_table);
   return STATUS_OK;
 }
 
 status_t mmu_root_coarse_page_table_clear_entry(uint8_t coarse_page_table_index){
   root_coarse_page_table[coarse_page_table_index] = 0;
+  _mmu_invalidate_tlb();
+  return STATUS_OK;
+}
+
+status_t mmu_root_coarse_page_table_set_entry(uint8_t coarse_page_table_index, mmu_small_page_descriptor_t small_page){
+  root_coarse_page_table[coarse_page_table_index] = small_page.raw;
+  _mmu_invalidate_tlb();
+  return STATUS_OK;
+}
+
+status_t mmu_system_page_table_set_entry(uint16_t system_page_table_index, mmu_generic_descriptor_t table_entry){
+  system_page_table[system_page_table_index] = table_entry.raw;
   _mmu_invalidate_tlb();
   return STATUS_OK;
 }
@@ -251,7 +265,6 @@ status_t mmu_section_set_permissions(mmu_section_descriptor_t* section, mmu_acce
   return STATUS_OK;
 }
 
-
 status_t mmu_section_set_domain(mmu_section_descriptor_t* section, uint8_t domain){
   if(domain > 0b1111){
     SYS_LOG("undefined domain");
@@ -378,4 +391,27 @@ status_t mmu_small_page_init(mmu_small_page_descriptor_t* small_page){
   return STATUS_OK;
 }
 
+
+
+status_t mmu_frame_table_init(){
+  for(uint32_t i = 0; i < FRAME_TABLE_SIZE; ++i){
+    system_frame_table[i] = 0;
+  }
+  system_frame_table[0] = 1; // kernel text
+  system_frame_table[0x1ff] = 1; // kernel stack
+  system_frame_table[0x1f0] = 1; // kernel heap
+  return STATUS_OK;
+}
+
+status_t mmu_allocate_frame(uint32_t* frame){
+  for(uint32_t i = 0; i < FRAME_TABLE_SIZE; ++i){
+    if(system_frame_table[i] == 0){
+      SYS_LOGD("found free frame: %d", i);
+      system_frame_table[i] = 1;
+      *frame = i << 20;
+      return STATUS_OK;
+    }
+  }
+  return STATUS_ERR;
+}
 

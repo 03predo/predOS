@@ -3,9 +3,10 @@ all: build
 env:
 	./scripts/get_dependencies.sh
 
+# -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON
 build:
 	@if [ ! -d ${basedir}/build ]; then\
-  	cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi-rpi1.cmake;\
+  	cmake -S . -B build  -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi-rpi1.cmake;\
 	fi
 
 	cmake --build build
@@ -14,7 +15,7 @@ b: build
 
 build_test:
 	@if [ ! -d ${basedir}/build_test ]; then\
-  	cmake -S . -B build_test -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON -DPREDOS_TEST=1 -DCMAKE_C_COMPILER=/usr/bin/gcc;\
+  	cmake -S . -B build_test -DPREDOS_TEST=1 -DCMAKE_C_COMPILER=/usr/bin/gcc;\
 	fi
 
 	cmake --build build_test

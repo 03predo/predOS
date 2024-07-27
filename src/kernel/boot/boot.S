@@ -24,6 +24,14 @@ _unused_vector:                 .word _reset_handler
 _interrupt_vector:              .word interrupt_handler
 _fast_interrupt_vector:         .word fast_interrupt_handler
 
+_enable_interrupts:
+  // clear bit 0x80 of the cpsr reg
+  mrs     r0, cpsr
+  bic     r0, r0, #0x80
+  msr     cpsr_c, r0
+  cpsie   i
+  mov     pc, lr
+
 _reset_handler:
   mov r0, #0x8000
   mov r1, #0x0000
@@ -90,6 +98,7 @@ _reset_handler:
   mcr p14, #0, r0, c0, c1, #0
   mrc p14, #0, r0, c0, c1, #0
 
+  bl _enable_interrupts
   b kernel_init
 
 _inf_loop:

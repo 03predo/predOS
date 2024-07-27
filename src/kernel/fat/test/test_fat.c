@@ -26,6 +26,8 @@ status_t fat_set_dir_entry(const char* file_name, fat_directory_entry_t* dir_ent
 status_t fat_find_free_cluster(uint32_t* cluster);
 status_t fat_get_absolute_cluster(fat_directory_entry_t* dir_entry, uint32_t file_cluster_offset, uint32_t* absolute_cluster);
 status_t fat_read_file(int fd, char *buf, int len, int* bytes_read);
+status_t fat_free_cluster_table();
+status_t fat_read_cluster_table();
 
 uint32_t* disk = NULL;
 boot_sector_fat32_t* bs32 = NULL;
@@ -66,7 +68,7 @@ status_t mock_emmc_init_stub0(int cmock_num_calls){
 status_t mock_emmc_read_block(uint32_t start_block_address, uint16_t num_blocks, emmc_block_t* block){
   uint32_t* start_block = &disk[start_block_address * (EMMC_BLOCK_SIZE / sizeof(uint32_t))];
   for(uint32_t i = 0; i < num_blocks * (EMMC_BLOCK_SIZE / sizeof(uint32_t)); ++i){
-      block[i / (EMMC_BLOCK_SIZE / sizeof(uint32_t))].buf[i % EMMC_BLOCK_SIZE] = start_block[i];
+      block[i / (EMMC_BLOCK_SIZE / sizeof(uint32_t))].buf[i % (EMMC_BLOCK_SIZE / sizeof(uint32_t))] = start_block[i];
   }
   return STATUS_OK;
 }
@@ -217,7 +219,8 @@ void test_fat_init(){
   emmc_init_Stub(mock_emmc_init_stub0);
   emmc_read_block_Stub(mock_emmc_read_block_stub0); 
   TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
-
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
+  
   mock_emmc_Init();
   emmc_init_Stub(mock_emmc_init_stub0);
   emmc_read_block_Stub(mock_emmc_read_block_stub1);
@@ -289,9 +292,11 @@ void test_fat_get_dir_entry(){
   TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
   TEST_ASSERT_EQUAL(STATUS_OK, fat_get_dir_entry("config.txt", &dir_entry));
   TEST_ASSERT_EQUAL_CHAR_ARRAY("CONFIG  TXT", dir_entry.name, FAT_DIR_ENTRY_NAME_LEN);
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 
   TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_get_dir_entry("config_.txt", &dir_entry));
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_set_dir_entry(){
@@ -309,6 +314,7 @@ void test_fat_set_dir_entry(){
   TEST_ASSERT_EQUAL(STATUS_OK, fat_get_dir_entry("config1.txt", &dir_entry));
   TEST_ASSERT_EQUAL_CHAR_ARRAY("CONFIG1 TXT", dir_entry.name, FAT_DIR_ENTRY_NAME_LEN);
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_set_dir_entry("config.txt", &dir_entry));
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_find_free_cluster(){
@@ -322,21 +328,25 @@ void test_fat_find_free_cluster(){
   uint32_t cluster = 0;
   TEST_ASSERT_EQUAL(STATUS_OK, fat_find_free_cluster(&cluster));
   TEST_ASSERT_NOT_EQUAL(0, cluster);
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 
   mock_emmc_Init();
   emmc_init_Stub(mock_emmc_init_stub0);
   emmc_read_block_Stub(mock_emmc_read_block_stub7);
   emmc_write_block_Stub(mock_emmc_write_block_stub0); 
-  TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
 
-  printf("%#x, %#x\n", bs32->fields.bpb.root_entry_count, bs32->fields.bpb.bytes_per_sector);
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
+  printf("%#x, %#x, %#x\n", bs32->fields.bpb.root_entry_count, bs32->fields.bpb.bytes_per_sector, bs32->fields.bpb.fat_sector_count_16bit);
   emmc_block_t block;
   memset(&block, 0xff, sizeof(emmc_block_t));
   for(uint32_t i = 0; i < bs32->fields.bpb.fat_sector_count_16bit; ++i){
     mock_emmc_write_block(PARTITION_BASE_SEC + FAT_BASE_SEC + i, 1, &block);
   }
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_read_cluster_table()); 
 
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_find_free_cluster(&cluster));
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_create_file(){
@@ -374,6 +384,7 @@ void test_fat_create_file(){
   }
 
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_create_file("tmp1.txt", &dir_entry));
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_get_absolute_cluster(){ 
@@ -390,6 +401,8 @@ void test_fat_get_absolute_cluster(){
   TEST_ASSERT_EQUAL(STATUS_OK, fat_get_dir_entry("config.txt", &dir_entry));
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_get_absolute_cluster(&dir_entry, 4, &absolute_cluster));
   TEST_ASSERT_NOT_EQUAL(0, absolute_cluster);
+
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_read_block(){
@@ -401,8 +414,10 @@ void test_fat_read_block(){
   emmc_block_t block;
   TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
   TEST_ASSERT_EQUAL(STATUS_OK, fat_get_dir_entry("config.txt", &dir_entry));
-  TEST_ASSERT_EQUAL(STATUS_OK, fat_read_block(&dir_entry, 0, &block));
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_read_block(&dir_entry, 0, 1, &block));
   TEST_ASSERT_EQUAL_CHAR_ARRAY("start_file", block.buf, 10);
+
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_write_block(){
@@ -417,8 +432,10 @@ void test_fat_write_block(){
   TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
   TEST_ASSERT_EQUAL(STATUS_OK, fat_get_dir_entry("config.txt", &dir_entry));
   TEST_ASSERT_EQUAL(STATUS_OK, fat_write_block(&dir_entry, 0, &block));
-  TEST_ASSERT_EQUAL(STATUS_OK, fat_read_block(&dir_entry, 0, &block));
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_read_block(&dir_entry, 0, 1, &block));
   TEST_ASSERT_EQUAL_CHAR_ARRAY("write", block.buf, 5);
+
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_open_file(){
@@ -437,6 +454,7 @@ void test_fat_open_file(){
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_open_file("config.txt", O_RDWR, &fd)); 
   TEST_ASSERT_EQUAL(-1, fd);
 
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
   TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_open_file("config.txt", O_RDWR | O_WRONLY, &fd)); 
   TEST_ASSERT_EQUAL(-1, fd);
@@ -456,6 +474,7 @@ void test_fat_open_file(){
 
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_open_file("123456789.txt", O_CREAT | O_RDWR, &fd)); 
   TEST_ASSERT_EQUAL(-1, fd);
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_close_file(){
@@ -471,6 +490,7 @@ void test_fat_close_file(){
   TEST_ASSERT_EQUAL(STATUS_OK, fat_close_file(fd));
 
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_close_file(MAX_OPEN_FILES));
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_read_file(){
@@ -501,6 +521,7 @@ void test_fat_read_file(){
 
   TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("config.txt", O_WRONLY, &fd)); 
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_read_file(fd, buf, 1, &bytes_read));
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }
 
 void test_fat_write_file(){
@@ -511,7 +532,7 @@ void test_fat_write_file(){
 
   int fd = -1;
   TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
-  TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_CREAT | O_WRONLY | O_APPEND, &fd)); 
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_CREAT | O_WRONLY | O_APPEND, &fd));
   int bytes_written = 0;
   char buf[2200];
   TEST_ASSERT_EQUAL(STATUS_OK, fat_write_file(fd, buf, 2200, &bytes_written));
@@ -530,4 +551,27 @@ void test_fat_write_file(){
 
   TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("tmp.txt", O_RDONLY, &fd)); 
   TEST_ASSERT_EQUAL(STATUS_ERR, fat_write_file(fd, buf, 10, &bytes_written));
+
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
+}
+
+void test_fat_seek_file(){
+  sys_uptime_IgnoreAndReturn(0);
+  emmc_init_Stub(mock_emmc_init_stub0);
+  emmc_read_block_Stub(mock_emmc_read_block_stub7);
+  emmc_write_block_Stub(mock_emmc_write_block_stub0);
+
+  int fd = -1;
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_init());
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_open_file("config.txt", O_CREAT | O_WRONLY | O_APPEND, &fd)); 
+  int new_offset = -1;
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_seek_file(fd, 1, SEEK_SET, &new_offset));
+  TEST_ASSERT_EQUAL(new_offset, 1);
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_seek_file(fd, 1, SEEK_CUR, &new_offset));
+  TEST_ASSERT_EQUAL(new_offset, 2);
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_seek_file(fd, 0, SEEK_END, &new_offset));
+  TEST_ASSERT_EQUAL(STATUS_ERR, fat_seek_file(fd, 1, SEEK_END, &new_offset));
+  TEST_ASSERT_EQUAL(STATUS_ERR, fat_seek_file(0, 1, SEEK_SET, &new_offset));
+  TEST_ASSERT_EQUAL(STATUS_ERR, fat_seek_file(fd, 1, 0xff, &new_offset));
+  TEST_ASSERT_EQUAL(STATUS_OK, fat_free_cluster_table());
 }

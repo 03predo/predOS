@@ -1,2 +1,0 @@
-
-NOTO Serif Teluma
