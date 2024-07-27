@@ -9,7 +9,7 @@
 #define SVC_LSEEK   0x04
 #define SVC_EXECV   0x05
 #define SVC_EXIT    0x06
-
+#define SVC_FORK    0x07
 
 int kernel_open(const char *pathname, int flags);
 int kernel_close(int file);

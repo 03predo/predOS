@@ -18,9 +18,10 @@
 #include "mmu.h"
 #include "util.h"
 #include "fat.h"
+#include "proc.h"
 
 #define LED_PIN 16
-#define BUF_SIZE 2248
+#define MAX_PROCESSES 10
 
 extern int __bss_start__;
 extern int __bss_end__;
@@ -28,6 +29,9 @@ extern int __bss_end__;
 extern void _kernel_context_switch(uint32_t stack_pointer);
 
 int kernel_init(void) __attribute__((naked)) __attribute__((section(".text.boot.kernel")));
+
+static process_control_block_t pcb_list[MAX_PROCESSES];
+static process_control_block_t* pcb_curr = NULL;
 
 int kernel_open(const char *pathname, int flags){
   int fd = -1;
@@ -75,29 +79,41 @@ int kernel_lseek(int file, int offset, int whence){
 }
 
 int kernel_execv(const char *pathname, char *const argv[]){
-  SYS_LOGI("filename: %s, arg[1]: %s", pathname, argv[1]);
+  SYS_LOGI("filename: %s", pathname);
+
+  process_control_block_t* pcb = NULL;
+  if(pcb_curr == NULL){ // case should only occur on startup
+    for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+      if(pcb_list[i].state == UNUSED){
+        pcb = &pcb_list[i];
+        break;
+      }
+    }
+    if(pcb == NULL){
+      SYS_LOGE("failed to find free pcb");
+      return -1;
+    }
+    proc_create(pcb);
+  }else{
+    pcb = pcb_curr;
+    free(pcb->argv);
+  }
 
   uint32_t arg_num = 0;
   while(argv[arg_num] != NULL){
     arg_num++;
   }
   SYS_LOGI("arg_num: %d", arg_num);
-  char** app_argv = malloc(sizeof(char*)*(arg_num + 1));
-  if(app_argv == NULL) return -1;
+  pcb->argv = malloc(sizeof(char*)*(arg_num + 1));
+  if(pcb->argv == NULL) return -1;
   for(uint32_t i = 0; i < arg_num; ++i){
-    app_argv[i] = malloc(sizeof(char)*(strlen(argv[i]) + 1));
-    if(app_argv == NULL) return -1;
-    if(strcpy(app_argv[i], argv[i]) == NULL) return -1;
-    SYS_LOGI("app_argv[%d]: %s", i, app_argv[i]);
+    pcb->argv[i] = malloc(sizeof(char)*(strlen(argv[i]) + 1));
+    if(pcb->argv == NULL) return -1;
+    if(strcpy(pcb->argv[i], argv[i]) == NULL) return -1;
+    SYS_LOGI("pcb->argv[%d]: %s", i, pcb->argv[i]);
   }
-  app_argv[arg_num] = NULL; 
+  pcb->argv[arg_num] = NULL; 
   
-  uint32_t text_frame;
-  if(mmu_allocate_frame(&text_frame) != STATUS_OK){
-    SYS_LOGE("failed to allocate frame");
-    return -1;
-  }
-  SYS_LOGI("got frame: %#x", text_frame);
   mmu_section_descriptor_t section = {
     .fields = {
       .descriptor_type = SECTION,
@@ -111,16 +127,17 @@ int kernel_execv(const char *pathname, char *const argv[]){
       .shareable = 0,
       .not_global = 0,
       .supersection = 0,
-      .section_base = SECTION_BASE(text_frame),
+      .section_base = SECTION_BASE(pcb->text_frame),
     }
   };
   mmu_generic_descriptor_t desc;
   desc.raw = section.raw;
-  mmu_system_page_table_set_entry(SECTION_BASE(text_frame), desc);
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb->text_frame), desc);
   
   int fd = kernel_open(pathname, O_RDWR);
   if(fd == -1){
     SYS_LOGE("open failed"); 
+    proc_destroy(pcb);
     return -1;
   }
   SYS_LOGI("opened file");
@@ -128,6 +145,7 @@ int kernel_execv(const char *pathname, char *const argv[]){
   int file_size = kernel_lseek(fd, 0, SEEK_END);
   if(file_size == -1){
     SYS_LOGE("lseek failed");
+    proc_destroy(pcb);
     return -1;
   }
   SYS_LOGI("file size: %d", file_size);
@@ -135,19 +153,13 @@ int kernel_execv(const char *pathname, char *const argv[]){
   int offset = kernel_lseek(fd, 0, SEEK_SET);
   if(offset == -1){
     SYS_LOGE("lseek failed");
+    proc_destroy(pcb);
     return -1;
   }
 
-  int bytes_read = kernel_read(fd, (void*)text_frame, file_size);
+  int bytes_read = kernel_read(fd, (void*)pcb->text_frame, file_size);
   SYS_LOGI("bytes_read: %d", bytes_read);
-
-  uint32_t stack_frame;
-  if(mmu_allocate_frame(&stack_frame) != STATUS_OK){
-    SYS_LOGE("failed to allocate frame");
-    return -1;
-  }
-  SYS_LOGI("got frame: %#x", stack_frame);
-  
+ 
   section = (mmu_section_descriptor_t) {
     .fields = {
       .descriptor_type = SECTION,
@@ -161,13 +173,13 @@ int kernel_execv(const char *pathname, char *const argv[]){
       .shareable = 0,
       .not_global = 0,
       .supersection = 0,
-      .section_base = SECTION_BASE(stack_frame),
+      .section_base = SECTION_BASE(pcb->stack_frame),
     }
   };
   desc.raw = section.raw;
-  mmu_system_page_table_set_entry(SECTION_BASE(stack_frame), desc);
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb->stack_frame), desc);
   desc.raw = 0;
-  mmu_system_page_table_set_entry(SECTION_BASE(text_frame), desc);
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb->text_frame), desc);
 
   mmu_small_page_descriptor_t small_page = {
     .fields = {
@@ -178,19 +190,18 @@ int kernel_execv(const char *pathname, char *const argv[]){
       .access_permission_extension = 0,
       .shareable  = 0,
       .not_global = 0,
-      .small_page_base = SMALL_PAGE_BASE(text_frame),
+      .small_page_base = SMALL_PAGE_BASE(pcb->text_frame),
     }
   };
 
   for(int i = 0; i < (256 - SMALL_PAGE_BASE(0x8000)); ++i){
-    small_page.fields.small_page_base = SMALL_PAGE_BASE(text_frame) + i;
+    small_page.fields.small_page_base = SMALL_PAGE_BASE(pcb->text_frame) + i;
     mmu_root_coarse_page_table_set_entry(SMALL_PAGE_BASE(0x8000) + i, small_page);
   }
   uint32_t* instruction = (uint32_t*)0x8128;
   SYS_LOGI("instruction: %#x", *instruction);
-  SYS_LOGI("app_argv: %#x", app_argv);
   
-  uint32_t* app_stack = (uint32_t*)(stack_frame + 0x100000);
+  uint32_t* app_stack = pcb->stack_pointer;
   *(--app_stack) = (uint32_t)_exit; // lr
   *(--app_stack) = 0xDEADBEEF; // r12
   *(--app_stack) = 0xDEADBEEF; // r11
@@ -204,9 +215,10 @@ int kernel_execv(const char *pathname, char *const argv[]){
   *(--app_stack) = 0xDEADBEEF; // r3
   *(--app_stack) = 0xDEADBEEF; // r2
   *(--app_stack) = 0xDEADBEEF; // r1
-  *(--app_stack) = (uint32_t)app_argv; // r0
+  *(--app_stack) = (uint32_t)pcb->argv; // r0
   *(--app_stack) = (uint32_t)0x8000; // context switch lr
   *(--app_stack) = 0x60000110; // SPSR
+  pcb->state = RUNNING;
   _kernel_context_switch((uint32_t)app_stack);
   while(1);
 }
@@ -220,8 +232,19 @@ int kernel_start(){
   sys_timer_sleep(1000);
   SYS_LOGI("starting predOS (v%s)", VERSION); 
 
-  char *args[]={"init", NULL};
-  SYS_LOGI("args: %#x", args);
+  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+    pcb_list[i] = (process_control_block_t) {
+      .id = i,
+      .state = UNUSED,
+      .argv = NULL,
+      .text_frame = 0,
+      .stack_frame = 0,
+      .stack_pointer = NULL,
+      .fd = -1
+    };
+  }
+
+  char *args[] = {"init", NULL};
   execv(args[0], args);
   
   while(1);
@@ -240,4 +263,5 @@ int kernel_init(void)
 
   while(1);
 }
+
 

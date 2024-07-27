@@ -59,6 +59,12 @@ static status_t svc_exit(uint32_t* sp){
   return STATUS_OK;
 }
 
+static status_t svc_fork(uint32_t* sp){
+  SYS_LOGI("forking...");
+  while(1);
+  return STATUS_OK;
+}
+
 status_t svc_handler(uint32_t* sp, uint32_t svc){
   SYS_LOGD("sp: %#x, svc: %#x", sp, svc);
   switch(svc){
@@ -82,6 +88,9 @@ status_t svc_handler(uint32_t* sp, uint32_t svc){
       break;
     case SVC_EXIT:
       STATUS_OK_OR_RETURN(svc_exit(sp));
+      break;
+    case SVC_FORK:
+      STATUS_OK_OR_RETURN(svc_fork(sp));
       break;
     default:
       SYS_LOGE("undefined svc: %#x", svc);

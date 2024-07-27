@@ -7,6 +7,8 @@
 #define COARSE_PAGE_TABLE_BASE(X) (X >> 10)
 #define SMALL_PAGE_BASE(X) (X >> 12)
 
+#define SECTION_SIZE 0x100000
+
 typedef enum {
   FAULT = 0b00,
   COARSE_PAGE_TABLE = 0b01,
@@ -77,4 +79,5 @@ status_t mmu_small_page_set_global(mmu_small_page_descriptor_t* small_page, bool
 
 status_t mmu_frame_table_init();
 status_t mmu_allocate_frame(uint32_t* frame);
+status_t mmu_deallocate_frame(uint32_t frame);
 

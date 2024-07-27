@@ -5,13 +5,14 @@ if(NOT PREDOS_TEST)
   add_subdirectory(boot)
   add_subdirectory(isr)
   add_subdirectory(mmu)
+  add_subdirectory(proc)
   add_subdirectory(syscall)
   add_executable(
     kernel
     kernel.c
     kernel.S
   )
-  target_link_libraries(kernel PRIVATE boot isr fat mmu drivers syscall)
+  target_link_libraries(kernel PRIVATE boot isr fat mmu proc drivers syscall)
   add_custom_command(
       TARGET kernel POST_BUILD
       COMMAND ${CMAKE_OBJCOPY} ${CMAKE_CURRENT_BINARY_DIR}/kernel${CMAKE_EXECUTABLE_SUFFIX} -O binary ${CMAKE_CURRENT_BINARY_DIR}/kernel.img
