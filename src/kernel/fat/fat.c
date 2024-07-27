@@ -141,11 +141,9 @@ status_t fat_print_cluster_table(){
 
 status_t fat_read_cluster_table(){
   bios_parameter_block_t* bpb = &fat.bs16.fields.bpb;
-  SYS_LOGI("malloc size: %ld", sizeof(emmc_block_t)*bpb->fat_sector_count_16bit);
   fat.sectors = (emmc_block_t*)malloc(sizeof(emmc_block_t)*bpb->fat_sector_count_16bit);
   if(fat.sectors == NULL) return STATUS_ERR;
 
-  SYS_LOGI("%#x, %#x", fat.partition_base_sector, fat.fat_base_sector);
   STATUS_OK_OR_RETURN(emmc_read_block(fat.partition_base_sector + fat.fat_base_sector, bpb->fat_sector_count_16bit, fat.sectors));
   return STATUS_OK;
 }
@@ -403,8 +401,6 @@ status_t fat_create_file(const char* file_name, fat_directory_entry_t* dir_entry
 
   bios_parameter_block_t* bpb = &fat.bs16.fields.bpb;
   uint32_t root_dir_sector_count = ((bpb->root_entry_count * sizeof(fat_directory_entry_t)) + (bpb->bytes_per_sector - 1)) / bpb->bytes_per_sector; 
-
-
   // find free directory entry
   fat_directory_entry_t search_dir_entry = {0};
   emmc_block_t block;
@@ -473,10 +469,41 @@ status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_nu
   uint32_t absolute_cluster;
   STATUS_OK_OR_RETURN(fat_get_absolute_cluster(dir_entry, cluster_offset, &absolute_cluster));
 
-  uint32_t absolute_sector = fat.partition_base_sector + fat.data_base_sector + (absolute_cluster - 2) * bpb->sectors_per_cluster + sector_offset;
-  SYS_LOGD("absolute sector: %#x", absolute_sector);
+  uint32_t read_sector = fat.partition_base_sector + fat.data_base_sector + (absolute_cluster - 2) * bpb->sectors_per_cluster + sector_offset;
+  uint16_t* cluster_table = (uint16_t*)fat.sectors;
+  uint32_t num_clusters = (num_blocks + sector_offset) / bpb->sectors_per_cluster;
+  uint32_t consecutive_clusters = 0;
+  uint32_t buffer_index = 0;
+  uint32_t next_cluster = 0;
+  uint32_t prev_cluster = absolute_cluster;
+  uint32_t sectors_in_first_block = 0;
+  uint32_t sectors_in_last_block = 0;
+  for(uint32_t i = 0; i < num_clusters; ++i){
+    next_cluster = cluster_table[prev_cluster];
+    if(prev_cluster == (next_cluster - 1)){
+      consecutive_clusters++;
+    }else{
+      SYS_LOGI("clusters not consecutive");
+      sectors_in_first_block = (bpb->sectors_per_cluster - (read_sector % bpb->sectors_per_cluster));
+      sectors_in_last_block = (num_blocks - sectors_in_first_block) % bpb->sectors_per_cluster;
+      STATUS_OK_OR_RETURN(emmc_read_block(
+        read_sector,
+        consecutive_clusters*bpb->sectors_per_cluster - (sector_offset - sectors_in_last_block),
+        &block[buffer_index]
+      ));
+      buffer_index += consecutive_clusters*bpb->sectors_per_cluster - (sector_offset - sectors_in_last_block);
+      read_sector = fat.partition_base_sector + fat.data_base_sector + (next_cluster - 2) * bpb->sectors_per_cluster;
+    }
+    prev_cluster = next_cluster;
+  }
 
-  STATUS_OK_OR_RETURN(emmc_read_block(absolute_sector, num_blocks, block));
+  sectors_in_first_block = (bpb->sectors_per_cluster - (read_sector % bpb->sectors_per_cluster));
+  sectors_in_last_block = (num_blocks - sectors_in_first_block) % bpb->sectors_per_cluster;
+  STATUS_OK_OR_RETURN(emmc_read_block(
+    read_sector,
+    consecutive_clusters*bpb->sectors_per_cluster - (sector_offset - sectors_in_last_block),
+    &block[buffer_index]
+  ));
   return STATUS_OK;
 }
 
