@@ -60,8 +60,8 @@ static status_t svc_exit(uint32_t* sp){
 }
 
 static status_t svc_fork(uint32_t* sp){
-  SYS_LOGI("forking...");
-  while(1);
+  uint32_t proc_sp = (uint32_t)sp;
+  sp[0] = kernel_fork(proc_sp - 8);
   return STATUS_OK;
 }
 

@@ -16,8 +16,7 @@ status_t proc_create(process_control_block_t* pcb){
   SYS_LOGI("got frame: %#x", pcb->stack_frame);
 
   pcb->stack_pointer = (uint32_t*)(pcb->stack_frame + SECTION_SIZE);
-  
-  
+
   return STATUS_OK;
 }
 

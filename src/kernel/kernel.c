@@ -218,9 +218,65 @@ int kernel_execv(const char *pathname, char *const argv[]){
   *(--app_stack) = (uint32_t)pcb->argv; // r0
   *(--app_stack) = (uint32_t)0x8000; // context switch lr
   *(--app_stack) = 0x60000110; // SPSR
+  pcb_curr->state = READY;
   pcb->state = RUNNING;
+  pcb_curr = pcb;
   _kernel_context_switch((uint32_t)app_stack);
-  while(1);
+  return -1;
+}
+
+int kernel_fork(uint32_t sp){
+  process_control_block_t* pcb = NULL;
+  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+    if(pcb_list[i].state == UNUSED){
+      pcb = &pcb_list[i];
+      break;
+    }
+  }
+  if(pcb == NULL){
+    SYS_LOGE("failed to find free pcb");
+    return -1;
+  }
+  proc_create(pcb);
+
+  mmu_section_descriptor_t section = {
+    .fields = {
+      .descriptor_type = SECTION,
+      .bufferable = 1,
+      .cacheable = 1,
+      .execute_never = 0,
+      .domain = 0,
+      .access_permission = 0b11,
+      .type_extension = 0,
+      .access_permission_extension = 0,
+      .shareable = 0,
+      .not_global = 0,
+      .supersection = 0,
+      .section_base = SECTION_BASE(pcb->stack_frame),
+    }
+  };
+  mmu_generic_descriptor_t desc;
+  desc.raw = section.raw;
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb->stack_frame), desc);
+ 
+  section.fields.section_base = SECTION_BASE(pcb->text_frame); 
+  desc.raw = section.raw;
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb->text_frame), desc);
+
+  section.fields.section_base = SECTION_BASE(pcb_curr->text_frame); 
+  desc.raw = section.raw;
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb_curr->text_frame), desc);
+
+  memcpy((void*)pcb->text_frame, (void*)pcb_curr->text_frame, SECTION_SIZE); 
+  memcpy((void*)pcb->stack_frame, (void*)pcb_curr->stack_frame, SECTION_SIZE);  
+
+  desc.raw = 0;
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb->text_frame), desc);
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb_curr->text_frame), desc);
+
+  pcb->stack_pointer = (uint32_t*)((sp - pcb_curr->stack_frame) + pcb->stack_frame);
+  pcb->state = READY; 
+  return pcb->id;
 }
 
 int kernel_start(){
