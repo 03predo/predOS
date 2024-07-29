@@ -33,6 +33,19 @@ int kernel_init(void) __attribute__((naked)) __attribute__((section(".text.boot.
 static process_control_block_t pcb_list[MAX_PROCESSES];
 static process_control_block_t* pcb_curr = NULL;
 
+status_t kernel_schedule(uint32_t* pid){
+  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+    *pid = (pcb_curr->id + (i + 1)) % MAX_PROCESSES;
+    if(pcb_list[*pid].state == READY){
+      SYS_LOGI("found ready process %d", *pid);
+      return STATUS_OK;
+    }
+  }
+  *pid = MAX_PROCESSES;
+  SYS_LOGD("unable to find ready process");
+  return STATUS_ERR;
+}
+
 int kernel_open(const char *pathname, int flags){
   int fd = -1;
   if(fat_open_file(pathname, flags, &fd) != STATUS_OK){
@@ -283,17 +296,12 @@ int kernel_fork(uint32_t sp, uint32_t fp){
 
 void kernel_yield(uint32_t* sp){
   pcb_curr->stack_pointer = sp;
-  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
-    if(pcb_list[i].state == READY){
-      process_control_block_t* pcb = &pcb_list[i];
-      SYS_LOGD("found ready process %d", i);
-      pcb_curr->state = READY;
-      pcb_list[i].state = RUNNING;
-      pcb_curr = &pcb_list[i]; 
-      _kernel_context_switch((uint32_t)pcb->stack_pointer);
-    }
-  }
-  SYS_LOGD("unable to find ready process, returning to curr process %d", pcb_curr->id);
+  pcb_curr->state = READY;
+
+  uint32_t pid = MAX_PROCESSES;
+  while(kernel_schedule(&pid) != STATUS_OK);
+  pcb_curr = &pcb_list[pid]; 
+  _kernel_context_switch((uint32_t)pcb_curr->stack_pointer); 
 }
 
 int kernel_start(){
