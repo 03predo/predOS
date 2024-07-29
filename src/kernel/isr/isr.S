@@ -15,6 +15,7 @@ _undefined_instruction_handler:
   b undefined_instruction_handler
 
 _prefetch_abort_handler:
+  mov r0, lr
   b prefetch_abort_handler
 
 _data_abort_handler:

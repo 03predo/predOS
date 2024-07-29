@@ -225,7 +225,7 @@ int kernel_execv(const char *pathname, char *const argv[]){
   return -1;
 }
 
-int kernel_fork(uint32_t sp){
+int kernel_fork(uint32_t sp, uint32_t fp){
   process_control_block_t* pcb = NULL;
   for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
     if(pcb_list[i].state == UNUSED){
@@ -275,8 +275,25 @@ int kernel_fork(uint32_t sp){
   mmu_system_page_table_set_entry(SECTION_BASE(pcb_curr->text_frame), desc);
 
   pcb->stack_pointer = (uint32_t*)((sp - pcb_curr->stack_frame) + pcb->stack_frame);
+  pcb->stack_pointer[13] = (uint32_t)((fp - pcb_curr->stack_frame) + pcb->stack_frame); // set fp
+  pcb->stack_pointer[2] = 0; // set r0
   pcb->state = READY; 
   return pcb->id;
+}
+
+void kernel_yield(uint32_t* sp){
+  pcb_curr->stack_pointer = sp;
+  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+    if(pcb_list[i].state == READY){
+      process_control_block_t* pcb = &pcb_list[i];
+      SYS_LOGD("found ready process %d", i);
+      pcb_curr->state = READY;
+      pcb_list[i].state = RUNNING;
+      pcb_curr = &pcb_list[i]; 
+      _kernel_context_switch((uint32_t)pcb->stack_pointer);
+    }
+  }
+  SYS_LOGD("unable to find ready process, returning to curr process %d", pcb_curr->id);
 }
 
 int kernel_start(){

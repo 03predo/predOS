@@ -60,8 +60,16 @@ static status_t svc_exit(uint32_t* sp){
 }
 
 static status_t svc_fork(uint32_t* sp){
-  uint32_t proc_sp = (uint32_t)sp;
-  sp[0] = kernel_fork(proc_sp - 8);
+  uint32_t proc_sp = ((uint32_t)sp) - 8;
+  // frame pointer (fp) is r11
+  uint32_t fp = sp[11];
+  sp[0] = kernel_fork(proc_sp, fp);
+  return STATUS_OK;
+}
+
+static status_t svc_yield(uint32_t* sp){
+  uint32_t* proc_sp = &sp[-2];
+  kernel_yield(proc_sp);
   return STATUS_OK;
 }
 
@@ -91,6 +99,9 @@ status_t svc_handler(uint32_t* sp, uint32_t svc){
       break;
     case SVC_FORK:
       STATUS_OK_OR_RETURN(svc_fork(sp));
+      break;
+    case SVC_YIELD:
+      STATUS_OK_OR_RETURN(svc_yield(sp));
       break;
     default:
       SYS_LOGE("undefined svc: %#x", svc);

@@ -73,6 +73,11 @@ int _wait(){
   return -1;
 }
 
+int yield(){
+  asm inline("SVC "XSTR(SVC_YIELD));
+  return 0;
+}
+
 int _isatty(int file){
   return 1;
 }

@@ -41,9 +41,9 @@ void software_interrupt_handler(uint32_t sp){
   _kernel_context_switch(sp);
 }
 
-void __attribute__((interrupt("ABORT"))) prefetch_abort_handler(void){
+void __attribute__((interrupt("ABORT"))) prefetch_abort_handler(uint32_t lr){
   asm inline("cpsie i");
-  SYS_LOG("PREFETCH ABORT");
+  SYS_LOG("PREFETCH ABORT: %#x", lr);
 
   while(1){
     gpio_pulse(LED_PIN, 3);
