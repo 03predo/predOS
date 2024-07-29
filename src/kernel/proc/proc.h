@@ -15,7 +15,7 @@ typedef struct {
   uint32_t text_frame;
   uint32_t stack_frame;
   uint32_t* stack_pointer;
-  int fd;
+  uint64_t timestamp;
 }process_control_block_t;
 
 status_t proc_create(process_control_block_t* pcb);

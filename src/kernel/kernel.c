@@ -39,6 +39,12 @@ status_t kernel_schedule(uint32_t* pid){
     if(pcb_list[*pid].state == READY){
       SYS_LOGI("found ready process %d", *pid);
       return STATUS_OK;
+    }else if(pcb_list[*pid].state == BLOCKED){
+      if(pcb_list[*pid].timestamp < sys_uptime()){
+        pcb_list[*pid].state = READY;
+        SYS_LOGI("unblocking process %d", *pid);
+        return STATUS_OK;
+      }
     }
   }
   *pid = MAX_PROCESSES;
@@ -304,6 +310,18 @@ void kernel_yield(uint32_t* sp){
   _kernel_context_switch((uint32_t)pcb_curr->stack_pointer); 
 }
 
+void kernel_usleep(uint32_t* sp, uint32_t timeout){
+  pcb_curr->stack_pointer = sp;
+  pcb_curr->state = BLOCKED;
+  pcb_curr->timestamp = sys_uptime() + timeout;
+
+  uint32_t pid = MAX_PROCESSES;
+  while(kernel_schedule(&pid) != STATUS_OK);
+  pcb_curr = &pcb_list[pid];
+  _kernel_context_switch((uint32_t)pcb_curr->stack_pointer); 
+}
+
+
 int kernel_start(){
   if(gpio_func(LED_PIN, GPIO_OUTPUT) != STATUS_OK) exit(-1);
   if(uart_init(115200) != STATUS_OK) exit(-1);
@@ -321,7 +339,7 @@ int kernel_start(){
       .text_frame = 0,
       .stack_frame = 0,
       .stack_pointer = NULL,
-      .fd = -1
+      .timestamp = 0
     };
   }
 

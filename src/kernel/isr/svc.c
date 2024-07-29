@@ -73,6 +73,13 @@ static status_t svc_yield(uint32_t* sp){
   return STATUS_OK;
 }
 
+static status_t svc_usleep(uint32_t* sp){
+  uint32_t* proc_sp = &sp[-2];
+  uint32_t timeout = sp[0];
+  kernel_usleep(proc_sp, timeout);
+  return STATUS_OK;
+}
+
 status_t svc_handler(uint32_t* sp, uint32_t svc){
   SYS_LOGD("sp: %#x, svc: %#x", sp, svc);
   switch(svc){
@@ -102,6 +109,9 @@ status_t svc_handler(uint32_t* sp, uint32_t svc){
       break;
     case SVC_YIELD:
       STATUS_OK_OR_RETURN(svc_yield(sp));
+      break;
+    case SVC_USLEEP:
+      STATUS_OK_OR_RETURN(svc_usleep(sp));
       break;
     default:
       SYS_LOGE("undefined svc: %#x", svc);

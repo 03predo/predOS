@@ -12,6 +12,7 @@
 #define SVC_FORK    0x07
 #define SVC_WAIT    0x08
 #define SVC_YIELD   0x09
+#define SVC_USLEEP  0x0a
 
 int kernel_open(const char *pathname, int flags);
 int kernel_close(int file);
@@ -21,3 +22,4 @@ int kernel_lseek(int file, int offset, int whence);
 int kernel_execv(const char *pathname, char *const argv[]);
 int kernel_fork(uint32_t sp, uint32_t fp);
 void kernel_yield(uint32_t* sp);
+void kernel_usleep(uint32_t* sp, uint32_t timeout);

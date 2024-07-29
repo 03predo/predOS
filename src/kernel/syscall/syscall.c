@@ -78,6 +78,13 @@ int yield(){
   return 0;
 }
 
+int usleep(useconds_t usec){
+  asm inline("SVC "XSTR(SVC_USLEEP));
+  int status = -1;
+  GET_R0(status);
+  return status;
+}
+
 int _isatty(int file){
   return 1;
 }
