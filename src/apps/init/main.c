@@ -1,13 +1,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define GET_FP(fp) asm inline ("mov %0, fp" : "=r" (fp) : : )
 
 int main(){
   printf("init\n");
   pid_t child_pid = fork();
-  uint32_t fp = 0;
-  GET_FP(fp);
   if(child_pid == -1){
     printf("fork failed\n");
     return -1;

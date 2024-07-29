@@ -26,23 +26,21 @@
 extern int __bss_start__;
 extern int __bss_end__;
 
-extern void _kernel_context_switch(uint32_t stack_pointer);
-
 int kernel_init(void) __attribute__((naked)) __attribute__((section(".text.boot.kernel")));
 
 static process_control_block_t pcb_list[MAX_PROCESSES];
-static process_control_block_t* pcb_curr = NULL;
+process_control_block_t* pcb_curr = NULL;
 
 status_t kernel_schedule(uint32_t* pid){
   for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
     *pid = (pcb_curr->id + (i + 1)) % MAX_PROCESSES;
     if(pcb_list[*pid].state == READY){
-      SYS_LOGI("found ready process %d", *pid);
+      SYS_LOGD("found ready process %d", *pid);
       return STATUS_OK;
     }else if(pcb_list[*pid].state == BLOCKED){
       if(pcb_list[*pid].timestamp < sys_uptime()){
         pcb_list[*pid].state = READY;
-        SYS_LOGI("unblocking process %d", *pid);
+        SYS_LOGD("unblocking process %d", *pid);
         return STATUS_OK;
       }
     }
@@ -50,6 +48,56 @@ status_t kernel_schedule(uint32_t* pid){
   *pid = MAX_PROCESSES;
   SYS_LOGD("unable to find ready process");
   return STATUS_ERR;
+}
+
+status_t kernel_context_save(uint32_t* sp){
+  if(pcb_curr == NULL) return STATUS_ERR;
+  if(pcb_curr->state != UNUSED) pcb_curr->stack_pointer = sp;
+  return STATUS_OK;
+}
+
+status_t kernel_context_switch(uint32_t* sp){
+  pcb_curr->state = RUNNING;
+
+  mmu_section_descriptor_t section = {
+    .fields = {
+      .descriptor_type = SECTION,
+      .bufferable = 1,
+      .cacheable = 1,
+      .execute_never = 0,
+      .domain = 0,
+      .access_permission = 0b11,
+      .type_extension = 0,
+      .access_permission_extension = 0,
+      .shareable = 0,
+      .not_global = 0,
+      .supersection = 0,
+      .section_base = SECTION_BASE(pcb_curr->stack_frame),
+    }
+  };
+  mmu_generic_descriptor_t desc;
+  desc.raw = section.raw;
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb_curr->virtual_stack_frame), desc);
+
+  mmu_small_page_descriptor_t small_page = {
+    .fields = {
+      .descriptor_type = SMALL_PAGE_EXECUTABLE,
+      .bufferable = 1,
+      .cacheable = 1,
+      .access_permission = 0b11,
+      .access_permission_extension = 0,
+      .shareable  = 0,
+      .not_global = 0,
+      .small_page_base = SMALL_PAGE_BASE(pcb_curr->text_frame),
+    }
+  };
+
+  for(int i = 0; i < (256 - SMALL_PAGE_BASE(0x8000)); ++i){
+    small_page.fields.small_page_base = SMALL_PAGE_BASE(pcb_curr->text_frame) + i;
+    mmu_root_coarse_page_table_set_entry(SMALL_PAGE_BASE(0x8000) + i, small_page);
+  }
+  *sp = (uint32_t)pcb_curr->stack_pointer;
+  return STATUS_OK;
 }
 
 int kernel_open(const char *pathname, int flags){
@@ -115,7 +163,7 @@ int kernel_execv(const char *pathname, char *const argv[]){
     proc_create(pcb);
   }else{
     pcb = pcb_curr;
-    free(pcb->argv);
+    if(pcb->argv != NULL) free(pcb->argv);
   }
 
   uint32_t arg_num = 0;
@@ -217,30 +265,26 @@ int kernel_execv(const char *pathname, char *const argv[]){
     small_page.fields.small_page_base = SMALL_PAGE_BASE(pcb->text_frame) + i;
     mmu_root_coarse_page_table_set_entry(SMALL_PAGE_BASE(0x8000) + i, small_page);
   }
-  uint32_t* instruction = (uint32_t*)0x8128;
-  SYS_LOGI("instruction: %#x", *instruction);
   
-  uint32_t* app_stack = pcb->stack_pointer;
-  *(--app_stack) = (uint32_t)_exit; // lr
-  *(--app_stack) = 0xDEADBEEF; // r12
-  *(--app_stack) = 0xDEADBEEF; // r11
-  *(--app_stack) = 0xDEADBEEF; // r10
-  *(--app_stack) = 0xDEADBEEF; // r9
-  *(--app_stack) = 0xDEADBEEF; // r8
-  *(--app_stack) = 0xDEADBEEF; // r7
-  *(--app_stack) = 0xDEADBEEF; // r6
-  *(--app_stack) = 0xDEADBEEF; // r5
-  *(--app_stack) = 0xDEADBEEF; // r4
-  *(--app_stack) = 0xDEADBEEF; // r3
-  *(--app_stack) = 0xDEADBEEF; // r2
-  *(--app_stack) = 0xDEADBEEF; // r1
-  *(--app_stack) = (uint32_t)pcb->argv; // r0
-  *(--app_stack) = (uint32_t)0x8000; // context switch lr
-  *(--app_stack) = 0x60000110; // SPSR
+  *(--pcb->stack_pointer) = (uint32_t)_exit; // lr
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r12
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r11
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r10
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r9
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r8
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r7
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r6
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r5
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r4
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r3
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r2
+  *(--pcb->stack_pointer) = 0xDEADBEEF; // r1
+  *(--pcb->stack_pointer) = (uint32_t)pcb->argv; // r0
+  *(--pcb->stack_pointer) = (uint32_t)0x8000; // context switch lr
+  *(--pcb->stack_pointer) = 0x60000110; // SPSR
   pcb_curr->state = READY;
-  pcb->state = RUNNING;
+
   pcb_curr = pcb;
-  _kernel_context_switch((uint32_t)app_stack);
   return -1;
 }
 
@@ -257,6 +301,7 @@ int kernel_fork(uint32_t sp, uint32_t fp){
     return -1;
   }
   proc_create(pcb);
+  pcb->virtual_stack_frame = pcb_curr->stack_frame;
 
   mmu_section_descriptor_t section = {
     .fields = {
@@ -289,36 +334,37 @@ int kernel_fork(uint32_t sp, uint32_t fp){
   memcpy((void*)pcb->text_frame, (void*)pcb_curr->text_frame, SECTION_SIZE); 
   memcpy((void*)pcb->stack_frame, (void*)pcb_curr->stack_frame, SECTION_SIZE);  
 
-  desc.raw = 0;
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb->text_frame), desc);
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb_curr->text_frame), desc);
+  
 
   pcb->stack_pointer = (uint32_t*)((sp - pcb_curr->stack_frame) + pcb->stack_frame);
-  pcb->stack_pointer[13] = (uint32_t)((fp - pcb_curr->stack_frame) + pcb->stack_frame); // set fp
   pcb->stack_pointer[2] = 0; // set r0
+  pcb->stack_pointer = (uint32_t*)(sp);
   pcb->state = READY; 
+
+  desc.raw = 0;
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb->stack_frame), desc);
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb->text_frame), desc);
+  mmu_system_page_table_set_entry(SECTION_BASE(pcb_curr->text_frame), desc);
   return pcb->id;
 }
 
-void kernel_yield(uint32_t* sp){
-  pcb_curr->stack_pointer = sp;
+int kernel_yield(){
   pcb_curr->state = READY;
 
   uint32_t pid = MAX_PROCESSES;
   while(kernel_schedule(&pid) != STATUS_OK);
-  pcb_curr = &pcb_list[pid]; 
-  _kernel_context_switch((uint32_t)pcb_curr->stack_pointer); 
+  pcb_curr = &pcb_list[pid];
+  return 0;
 }
 
-void kernel_usleep(uint32_t* sp, uint32_t timeout){
-  pcb_curr->stack_pointer = sp;
+int kernel_usleep(uint32_t timeout){
   pcb_curr->state = BLOCKED;
   pcb_curr->timestamp = sys_uptime() + timeout;
 
   uint32_t pid = MAX_PROCESSES;
   while(kernel_schedule(&pid) != STATUS_OK);
   pcb_curr = &pcb_list[pid];
-  _kernel_context_switch((uint32_t)pcb_curr->stack_pointer); 
+  return 0;
 }
 
 
@@ -342,6 +388,9 @@ int kernel_start(){
       .timestamp = 0
     };
   }
+
+  pcb_curr = &pcb_list[0];
+  proc_create(pcb_curr);
 
   char *args[] = {"init", NULL};
   execv(args[0], args);

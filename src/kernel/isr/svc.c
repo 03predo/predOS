@@ -61,6 +61,7 @@ static status_t svc_exit(uint32_t* sp){
 
 static status_t svc_fork(uint32_t* sp){
   uint32_t proc_sp = ((uint32_t)sp) - 8;
+  SYS_LOGI("proc_sp: %#x", proc_sp);
   // frame pointer (fp) is r11
   uint32_t fp = sp[11];
   sp[0] = kernel_fork(proc_sp, fp);
@@ -68,15 +69,13 @@ static status_t svc_fork(uint32_t* sp){
 }
 
 static status_t svc_yield(uint32_t* sp){
-  uint32_t* proc_sp = &sp[-2];
-  kernel_yield(proc_sp);
+  sp[0] = kernel_yield();
   return STATUS_OK;
 }
 
 static status_t svc_usleep(uint32_t* sp){
-  uint32_t* proc_sp = &sp[-2];
   uint32_t timeout = sp[0];
-  kernel_usleep(proc_sp, timeout);
+  sp[0] = kernel_usleep(timeout);
   return STATUS_OK;
 }
 

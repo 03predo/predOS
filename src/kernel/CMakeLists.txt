@@ -10,7 +10,6 @@ if(NOT PREDOS_TEST)
   add_executable(
     kernel
     kernel.c
-    kernel.S
   )
   target_link_libraries(kernel PRIVATE boot isr fat mmu proc drivers syscall)
   add_custom_command(

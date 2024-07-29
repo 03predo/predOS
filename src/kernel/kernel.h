@@ -1,5 +1,6 @@
 #pragma once
 
+#include "status.h"
 #include "util.h"
 
 #define SVC_OPEN    0x00
@@ -14,6 +15,10 @@
 #define SVC_YIELD   0x09
 #define SVC_USLEEP  0x0a
 
+status_t kernel_context_save(uint32_t* sp);
+//void _kernel_context_switch(uint32_t stack_pointer);
+status_t kernel_context_switch();
+
 int kernel_open(const char *pathname, int flags);
 int kernel_close(int file);
 int kernel_read(int file, char *ptr, int len);
@@ -21,5 +26,6 @@ int kernel_write(int file, char *ptr, int len);
 int kernel_lseek(int file, int offset, int whence);
 int kernel_execv(const char *pathname, char *const argv[]);
 int kernel_fork(uint32_t sp, uint32_t fp);
-void kernel_yield(uint32_t* sp);
-void kernel_usleep(uint32_t* sp, uint32_t timeout);
+int kernel_yield();
+int kernel_usleep(uint32_t timeout);
+

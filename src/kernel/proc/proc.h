@@ -14,6 +14,7 @@ typedef struct {
   char** argv;
   uint32_t text_frame;
   uint32_t stack_frame;
+  uint32_t virtual_stack_frame;
   uint32_t* stack_pointer;
   uint64_t timestamp;
 }process_control_block_t;
