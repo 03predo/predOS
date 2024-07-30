@@ -174,6 +174,21 @@ int kernel_execv(const char *pathname, char *const argv[]){
   return -1;
 }
 
+void kernel_exit(int exit_status){ 
+  SYS_LOGD("process %d exited with %d", pcb_curr->id, exit_status);
+  if(pcb_curr->argv != NULL) free(pcb_curr->argv);
+  //proc_frame_write_disable(pcb_curr);
+  if(proc_destroy(pcb_curr) != STATUS_OK){
+    SYS_LOGE("failed to destroy pcb");
+    return;
+  }
+  pcb_curr->state = UNUSED;
+
+  uint32_t pid = MAX_PROCESSES;
+  while(kernel_schedule(&pid) != STATUS_OK);
+  pcb_curr = &pcb_list[pid];
+}
+
 int kernel_fork(uint32_t sp, uint32_t fp){
   process_control_block_t* pcb = NULL;
   for(uint32_t i = 0; i < MAX_PROCESSES; ++i){

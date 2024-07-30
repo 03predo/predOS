@@ -25,6 +25,7 @@ int kernel_read(int file, char *ptr, int len);
 int kernel_write(int file, char *ptr, int len);
 int kernel_lseek(int file, int offset, int whence);
 int kernel_execv(const char *pathname, char *const argv[]);
+void kernel_exit(int exit_status);
 int kernel_fork(uint32_t sp, uint32_t fp);
 int kernel_yield();
 int kernel_usleep(uint32_t timeout);

@@ -9,10 +9,8 @@ int main(){
     printf("fork failed\n");
     return -1;
   }else if(child_pid == 0){
-    while(1){
-      printf("child 1\n");
-      usleep(1000000);
-    }
+    char *args[] = {"echo", "hello world", NULL};
+    execv(args[0], args);
   }else{
     printf("parent: %d\n", child_pid);
   }

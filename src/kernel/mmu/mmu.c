@@ -418,6 +418,7 @@ status_t mmu_allocate_frame(uint32_t* frame){
 }
 
 status_t mmu_deallocate_frame(uint32_t frame){
-  system_frame_table[frame] = 0;
+  system_frame_table[SECTION_BASE(frame)] = 0;
+  return STATUS_OK;
 }
 

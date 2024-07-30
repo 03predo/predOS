@@ -54,8 +54,8 @@ static status_t svc_execv(uint32_t* sp){
 }
 
 static status_t svc_exit(uint32_t* sp){
-  SYS_LOGI("exit status: %d", sp[0]);
-  while(1);
+  int exit_status = sp[0];
+  kernel_exit(exit_status);
   return STATUS_OK;
 }
 
