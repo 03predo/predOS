@@ -127,15 +127,15 @@ status_t mmu_root_coarse_page_table_set_entry(uint8_t coarse_page_table_index, m
   return STATUS_OK;
 }
 
-status_t mmu_system_page_table_set_entry(uint16_t system_page_table_index, mmu_generic_descriptor_t table_entry){
-  system_page_table[system_page_table_index] = table_entry.raw;
+status_t mmu_system_page_table_set_entry(uint16_t system_page_table_index, uint32_t entry){
+  system_page_table[system_page_table_index] = entry;
   _mmu_invalidate_tlb();
   return STATUS_OK;
 }
 
 status_t mmu_section_set_base(mmu_section_descriptor_t* section, uint32_t section_base){
   if(section_base > 0xfff){
-    SYS_LOG("invalid section base");
+    SYS_LOGE("invalid section base");
     return STATUS_ERR;
   }
   section->fields.section_base = section_base;
@@ -192,7 +192,7 @@ status_t mmu_section_set_attributes(mmu_section_descriptor_t* section, mmu_memor
             section->fields.type_extension = 0;
             break;
           default:
-            SYS_LOG("undefined cache policy");
+            SYS_LOGE("undefined cache policy");
             return STATUS_ERR;
             break;
         }
@@ -208,7 +208,7 @@ status_t mmu_section_set_attributes(mmu_section_descriptor_t* section, mmu_memor
       break;
 
     default:
-      SYS_LOG("undefined memory type");
+      SYS_LOGE("undefined memory type");
       return STATUS_ERR;
   }
   return STATUS_OK;
@@ -218,7 +218,7 @@ status_t mmu_section_set_permissions(mmu_section_descriptor_t* section, mmu_acce
   switch(permissions.kernel_permission){
     case NO_ACCESS:
       if(permissions.user_permission != NO_ACCESS){
-        SYS_LOG("invalid user permission");
+        SYS_LOGE("invalid user permission");
         return STATUS_ERR;
       }
       section->fields.access_permission = 0b00;
@@ -233,10 +233,10 @@ status_t mmu_section_set_permissions(mmu_section_descriptor_t* section, mmu_acce
         section->fields.access_permission = 0b10;
         section->fields.access_permission_extension = 1;
       }else if(permissions.user_permission == READ_WRITE){
-        SYS_LOG("invalid user permission");
+        SYS_LOGE("invalid user permission");
         return STATUS_ERR;
       }else{
-        SYS_LOG("undefined user permission");
+        SYS_LOGE("undefined user permission");
         return STATUS_ERR;
       }
       break;
@@ -252,7 +252,7 @@ status_t mmu_section_set_permissions(mmu_section_descriptor_t* section, mmu_acce
         section->fields.access_permission = 0b11;
         section->fields.access_permission_extension = 0;
       }else{
-        SYS_LOG("undefined use permission");
+        SYS_LOGE("undefined use permission");
         return STATUS_ERR;
       }
       break;
@@ -276,10 +276,12 @@ status_t mmu_section_set_domain(mmu_section_descriptor_t* section, uint8_t domai
 
 status_t mmu_section_set_executable(mmu_section_descriptor_t* section, bool is_executable){
   section->fields.execute_never = is_executable ? 0 : 1;
+  return STATUS_OK;
 }
 
 status_t mmu_section_set_global(mmu_section_descriptor_t* section, bool is_global){
   section->fields.not_global = is_global ? 0 : 1;
+  return STATUS_OK;
 }
 
 status_t mmu_section_init(mmu_section_descriptor_t* section){
@@ -413,5 +415,10 @@ status_t mmu_allocate_frame(uint32_t* frame){
     }
   }
   return STATUS_ERR;
+}
+
+status_t mmu_deallocate_frame(uint32_t frame){
+  system_frame_table[SECTION_BASE(frame)] = 0;
+  return STATUS_OK;
 }
 

@@ -1,3 +1,4 @@
+#pragma once
 #include <stdbool.h>
 
 #include "status.h"
@@ -6,6 +7,8 @@
 #define SECTION_BASE(X) (X >> 20)
 #define COARSE_PAGE_TABLE_BASE(X) (X >> 10)
 #define SMALL_PAGE_BASE(X) (X >> 12)
+
+#define SECTION_SIZE 0x100000
 
 typedef enum {
   FAULT = 0b00,
@@ -52,7 +55,7 @@ typedef struct {
 } mmu_access_permissions_t;
 
 status_t mmu_init();
-status_t mmu_system_page_table_set_entry(uint16_t system_page_table_entry, mmu_generic_descriptor_t table_entry);
+status_t mmu_system_page_table_set_entry(uint16_t system_page_table_index, uint32_t entry);
 status_t mmu_root_coarse_page_table_clear_entry(uint8_t coarse_page_table_index);
 status_t mmu_root_coarse_page_table_set_entry(uint8_t coarse_page_table_index, mmu_small_page_descriptor_t small_page);
 
@@ -77,4 +80,5 @@ status_t mmu_small_page_set_global(mmu_small_page_descriptor_t* small_page, bool
 
 status_t mmu_frame_table_init();
 status_t mmu_allocate_frame(uint32_t* frame);
+status_t mmu_deallocate_frame(uint32_t frame);
 

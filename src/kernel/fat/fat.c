@@ -130,7 +130,7 @@ status_t fat_print_cluster_table(){
     for(uint32_t j = 0; j < 16; ++j){
       LOGI("%#06x  ", 512*i + j*16);
       for(uint32_t k = 0; k < 16; ++k){
-        LOGI("%#06x ", sec[j*16 + k]);
+        LOGI("%#06x ", sec[512*i + j*16 + k]);
       }
       LOGI("\n");
     } 
@@ -461,6 +461,7 @@ status_t fat_append_cluster(fat_directory_entry_t* dir_entry){
   return STATUS_OK;
 }
 
+// TODO: split this function into fat_read_block and fat_read_multiple_block
 status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_number, uint32_t num_blocks, emmc_block_t* block){
   bios_parameter_block_t* bpb = &fat.bs16.fields.bpb;
   uint32_t cluster_offset = file_block_number / bpb->sectors_per_cluster;
@@ -468,22 +469,30 @@ status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_nu
 
   uint32_t absolute_cluster;
   STATUS_OK_OR_RETURN(fat_get_absolute_cluster(dir_entry, cluster_offset, &absolute_cluster));
-
   uint32_t read_sector = fat.partition_base_sector + fat.data_base_sector + (absolute_cluster - 2) * bpb->sectors_per_cluster + sector_offset;
+
+  if(num_blocks == 1){
+    SYS_LOGI("read_sector: %#x", read_sector);
+    STATUS_OK_OR_RETURN(emmc_read_block(read_sector, 1, block));
+    return STATUS_OK;
+  }
+
   uint16_t* cluster_table = (uint16_t*)fat.sectors;
-  uint32_t num_clusters = (num_blocks + sector_offset) / bpb->sectors_per_cluster;
+  uint32_t num_clusters = (num_blocks + sector_offset - 1) / bpb->sectors_per_cluster;
   uint32_t consecutive_clusters = 0;
   uint32_t buffer_index = 0;
   uint32_t next_cluster = 0;
   uint32_t prev_cluster = absolute_cluster;
   uint32_t sectors_in_first_block = 0;
   uint32_t sectors_in_last_block = 0;
+  SYS_LOGI("abs: %#x, num_clusters: %d", absolute_cluster, num_clusters);
   for(uint32_t i = 0; i < num_clusters; ++i){
     next_cluster = cluster_table[prev_cluster];
     if(prev_cluster == (next_cluster - 1)){
       consecutive_clusters++;
     }else{
-      SYS_LOGI("clusters not consecutive");
+      SYS_LOGI("next: %#x, prev: %#x", next_cluster, prev_cluster);
+      while(1);
       sectors_in_first_block = (bpb->sectors_per_cluster - (read_sector % bpb->sectors_per_cluster));
       sectors_in_last_block = (num_blocks - sectors_in_first_block) % bpb->sectors_per_cluster;
       STATUS_OK_OR_RETURN(emmc_read_block(

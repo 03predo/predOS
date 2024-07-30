@@ -52,9 +52,37 @@ int execv(const char *pathname, char *const argv[]){
   return -1;
 }
 
+int _execve(const char *filename, char *const argv[], char *const envp[]){
+  asm inline("SVC "XSTR(SVC_EXECV));
+  return -1;
+}
+
 void _exit(int status){
   asm inline("SVC "XSTR(SVC_EXIT)); 
   while(1);
+}
+
+int _fork(){
+  asm inline("SVC "XSTR(SVC_FORK));
+  int pid = -1;
+  GET_R0(pid);
+  return pid;
+}
+
+int _wait(){
+  return -1;
+}
+
+int yield(){
+  asm inline("SVC "XSTR(SVC_YIELD));
+  return 0;
+}
+
+int usleep(useconds_t usec){
+  asm inline("SVC "XSTR(SVC_USLEEP));
+  int status = -1;
+  GET_R0(status);
+  return status;
 }
 
 int _isatty(int file){
