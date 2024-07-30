@@ -1,3 +1,4 @@
+#pragma once
 #include <stdbool.h>
 
 #include "status.h"
@@ -54,7 +55,7 @@ typedef struct {
 } mmu_access_permissions_t;
 
 status_t mmu_init();
-status_t mmu_system_page_table_set_entry(uint16_t system_page_table_entry, mmu_generic_descriptor_t table_entry);
+status_t mmu_system_page_table_set_entry(uint16_t system_page_table_index, uint32_t entry);
 status_t mmu_root_coarse_page_table_clear_entry(uint8_t coarse_page_table_index);
 status_t mmu_root_coarse_page_table_set_entry(uint8_t coarse_page_table_index, mmu_small_page_descriptor_t small_page);
 

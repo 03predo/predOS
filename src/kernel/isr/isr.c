@@ -41,8 +41,10 @@ uint32_t software_interrupt_handler(uint32_t prev_sp){
   }
   
   uint32_t sp = 0;
-  if(kernel_context_switch(&sp) != STATUS_OK) return prev_sp;
-  SYS_LOGD("sp: %#x", sp);
+  if(kernel_context_switch(&sp) != STATUS_OK){
+    SYS_LOGE("context switch failed");
+    return prev_sp;
+  }
   return sp;
 }
 

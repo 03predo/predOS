@@ -1,21 +1,14 @@
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
-#include <fcntl.h>
 #include <unistd.h>
-
-#include "log_level.h"
 
 #include "kernel.h"
 #include "sys_log.h"
 #include "gpio.h"
 #include "sys_timer.h"
 #include "uart.h"
-#include "bcm2835.h"
-#include "emmc.h"
-#include "mmu.h"
 #include "util.h"
 #include "fat.h"
 #include "proc.h"
@@ -57,46 +50,9 @@ status_t kernel_context_save(uint32_t* sp){
 }
 
 status_t kernel_context_switch(uint32_t* sp){
-  pcb_curr->state = RUNNING;
-
-  mmu_section_descriptor_t section = {
-    .fields = {
-      .descriptor_type = SECTION,
-      .bufferable = 1,
-      .cacheable = 1,
-      .execute_never = 0,
-      .domain = 0,
-      .access_permission = 0b11,
-      .type_extension = 0,
-      .access_permission_extension = 0,
-      .shareable = 0,
-      .not_global = 0,
-      .supersection = 0,
-      .section_base = SECTION_BASE(pcb_curr->stack_frame),
-    }
-  };
-  mmu_generic_descriptor_t desc;
-  desc.raw = section.raw;
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb_curr->virtual_stack_frame), desc);
-
-  mmu_small_page_descriptor_t small_page = {
-    .fields = {
-      .descriptor_type = SMALL_PAGE_EXECUTABLE,
-      .bufferable = 1,
-      .cacheable = 1,
-      .access_permission = 0b11,
-      .access_permission_extension = 0,
-      .shareable  = 0,
-      .not_global = 0,
-      .small_page_base = SMALL_PAGE_BASE(pcb_curr->text_frame),
-    }
-  };
-
-  for(int i = 0; i < (256 - SMALL_PAGE_BASE(0x8000)); ++i){
-    small_page.fields.small_page_base = SMALL_PAGE_BASE(pcb_curr->text_frame) + i;
-    mmu_root_coarse_page_table_set_entry(SMALL_PAGE_BASE(0x8000) + i, small_page);
-  }
+  STATUS_OK_OR_RETURN(proc_frame_map(pcb_curr));
   *sp = (uint32_t)pcb_curr->stack_pointer;
+  pcb_curr->state = RUNNING;
   return STATUS_OK;
 }
 
@@ -146,31 +102,17 @@ int kernel_lseek(int file, int offset, int whence){
 }
 
 int kernel_execv(const char *pathname, char *const argv[]){
-  SYS_LOGI("filename: %s", pathname);
+  SYS_LOGD("filename: %s", pathname);
 
-  process_control_block_t* pcb = NULL;
-  if(pcb_curr == NULL){ // case should only occur on startup
-    for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
-      if(pcb_list[i].state == UNUSED){
-        pcb = &pcb_list[i];
-        break;
-      }
-    }
-    if(pcb == NULL){
-      SYS_LOGE("failed to find free pcb");
-      return -1;
-    }
-    proc_create(pcb);
-  }else{
-    pcb = pcb_curr;
-    if(pcb->argv != NULL) free(pcb->argv);
-  }
+  process_control_block_t* pcb = pcb_curr;
+  if(pcb->argv != NULL) free(pcb->argv);
 
   uint32_t arg_num = 0;
   while(argv[arg_num] != NULL){
     arg_num++;
   }
-  SYS_LOGI("arg_num: %d", arg_num);
+
+  SYS_LOGD("arg_num: %d", arg_num);
   pcb->argv = malloc(sizeof(char*)*(arg_num + 1));
   if(pcb->argv == NULL) return -1;
   for(uint32_t i = 0; i < arg_num; ++i){
@@ -180,27 +122,7 @@ int kernel_execv(const char *pathname, char *const argv[]){
     SYS_LOGI("pcb->argv[%d]: %s", i, pcb->argv[i]);
   }
   pcb->argv[arg_num] = NULL; 
-  
-  mmu_section_descriptor_t section = {
-    .fields = {
-      .descriptor_type = SECTION,
-      .bufferable = 1,
-      .cacheable = 1,
-      .execute_never = 0,
-      .domain = 0,
-      .access_permission = 0b11,
-      .type_extension = 0,
-      .access_permission_extension = 0,
-      .shareable = 0,
-      .not_global = 0,
-      .supersection = 0,
-      .section_base = SECTION_BASE(pcb->text_frame),
-    }
-  };
-  mmu_generic_descriptor_t desc;
-  desc.raw = section.raw;
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb->text_frame), desc);
-  
+   
   int fd = kernel_open(pathname, O_RDWR);
   if(fd == -1){
     SYS_LOGE("open failed"); 
@@ -224,48 +146,10 @@ int kernel_execv(const char *pathname, char *const argv[]){
     return -1;
   }
 
+  STATUS_OK_OR_RETURN(proc_frame_write_enable(pcb_curr));
   int bytes_read = kernel_read(fd, (void*)pcb->text_frame, file_size);
-  SYS_LOGI("bytes_read: %d", bytes_read);
- 
-  section = (mmu_section_descriptor_t) {
-    .fields = {
-      .descriptor_type = SECTION,
-      .bufferable = 1,
-      .cacheable = 1,
-      .execute_never = 0,
-      .domain = 0,
-      .access_permission = 0b11,
-      .type_extension = 0,
-      .access_permission_extension = 0,
-      .shareable = 0,
-      .not_global = 0,
-      .supersection = 0,
-      .section_base = SECTION_BASE(pcb->stack_frame),
-    }
-  };
-  desc.raw = section.raw;
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb->stack_frame), desc);
-  desc.raw = 0;
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb->text_frame), desc);
-
-  mmu_small_page_descriptor_t small_page = {
-    .fields = {
-      .descriptor_type = SMALL_PAGE_EXECUTABLE,
-      .bufferable = 1,
-      .cacheable = 1,
-      .access_permission = 0b11,
-      .access_permission_extension = 0,
-      .shareable  = 0,
-      .not_global = 0,
-      .small_page_base = SMALL_PAGE_BASE(pcb->text_frame),
-    }
-  };
-
-  for(int i = 0; i < (256 - SMALL_PAGE_BASE(0x8000)); ++i){
-    small_page.fields.small_page_base = SMALL_PAGE_BASE(pcb->text_frame) + i;
-    mmu_root_coarse_page_table_set_entry(SMALL_PAGE_BASE(0x8000) + i, small_page);
-  }
-  
+  SYS_LOGI("bytes_read: %d", bytes_read); 
+   
   *(--pcb->stack_pointer) = (uint32_t)_exit; // lr
   *(--pcb->stack_pointer) = 0xDEADBEEF; // r12
   *(--pcb->stack_pointer) = 0xDEADBEEF; // r11
@@ -282,9 +166,11 @@ int kernel_execv(const char *pathname, char *const argv[]){
   *(--pcb->stack_pointer) = (uint32_t)pcb->argv; // r0
   *(--pcb->stack_pointer) = (uint32_t)0x8000; // context switch lr
   *(--pcb->stack_pointer) = 0x60000110; // SPSR
-  pcb_curr->state = READY;
 
+  pcb_curr->state = READY;
   pcb_curr = pcb;
+
+  STATUS_OK_OR_RETURN(proc_frame_write_disable(pcb_curr));
   return -1;
 }
 
@@ -302,49 +188,18 @@ int kernel_fork(uint32_t sp, uint32_t fp){
   }
   proc_create(pcb);
   pcb->virtual_stack_frame = pcb_curr->stack_frame;
-
-  mmu_section_descriptor_t section = {
-    .fields = {
-      .descriptor_type = SECTION,
-      .bufferable = 1,
-      .cacheable = 1,
-      .execute_never = 0,
-      .domain = 0,
-      .access_permission = 0b11,
-      .type_extension = 0,
-      .access_permission_extension = 0,
-      .shareable = 0,
-      .not_global = 0,
-      .supersection = 0,
-      .section_base = SECTION_BASE(pcb->stack_frame),
-    }
-  };
-  mmu_generic_descriptor_t desc;
-  desc.raw = section.raw;
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb->stack_frame), desc);
- 
-  section.fields.section_base = SECTION_BASE(pcb->text_frame); 
-  desc.raw = section.raw;
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb->text_frame), desc);
-
-  section.fields.section_base = SECTION_BASE(pcb_curr->text_frame); 
-  desc.raw = section.raw;
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb_curr->text_frame), desc);
+  STATUS_OK_OR_RETURN(proc_frame_write_enable(pcb));
+  STATUS_OK_OR_RETURN(proc_frame_write_enable(pcb_curr));
 
   memcpy((void*)pcb->text_frame, (void*)pcb_curr->text_frame, SECTION_SIZE); 
   memcpy((void*)pcb->stack_frame, (void*)pcb_curr->stack_frame, SECTION_SIZE);  
-
-  
 
   pcb->stack_pointer = (uint32_t*)((sp - pcb_curr->stack_frame) + pcb->stack_frame);
   pcb->stack_pointer[2] = 0; // set r0
   pcb->stack_pointer = (uint32_t*)(sp);
   pcb->state = READY; 
 
-  desc.raw = 0;
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb->stack_frame), desc);
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb->text_frame), desc);
-  mmu_system_page_table_set_entry(SECTION_BASE(pcb_curr->text_frame), desc);
+  STATUS_OK_OR_RETURN(proc_frame_write_disable(pcb));
   return pcb->id;
 }
 
