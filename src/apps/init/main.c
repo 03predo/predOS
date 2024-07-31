@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 
 int main(){
@@ -13,6 +14,9 @@ int main(){
     execv(args[0], args);
   }else{
     printf("parent: %d\n", child_pid);
+    int status = -1;
+    pid_t child_pid = wait(&status);
+    printf("child_pid: %d, status: %d\n", child_pid, status);
   }
 
   child_pid = fork();

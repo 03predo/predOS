@@ -60,16 +60,18 @@ static status_t svc_exit(uint32_t* sp){
 }
 
 static status_t svc_fork(uint32_t* sp){
-  uint32_t proc_sp = ((uint32_t)sp) - 8;
-  SYS_LOGI("proc_sp: %#x", proc_sp);
-  // frame pointer (fp) is r11
-  uint32_t fp = sp[11];
-  sp[0] = kernel_fork(proc_sp, fp);
+  sp[0] = kernel_fork();
   return STATUS_OK;
 }
 
 static status_t svc_yield(uint32_t* sp){
   sp[0] = kernel_yield();
+  return STATUS_OK;
+}
+
+static status_t svc_wait(uint32_t* sp){
+  SYS_LOGI("exit_status: %#x", sp[0]);
+  kernel_wait();
   return STATUS_OK;
 }
 
@@ -108,6 +110,9 @@ status_t svc_handler(uint32_t* sp, uint32_t svc){
       break;
     case SVC_YIELD:
       STATUS_OK_OR_RETURN(svc_yield(sp));
+      break;
+    case SVC_WAIT:
+      STATUS_OK_OR_RETURN(svc_wait(sp));
       break;
     case SVC_USLEEP:
       STATUS_OK_OR_RETURN(svc_usleep(sp));

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <unistd.h>
 #include "status.h"
 #include "mmu.h"
 
@@ -6,11 +7,13 @@ typedef enum {
   UNUSED = 0,
   READY = 1,
   RUNNING = 2,
-  BLOCKED = 3
+  BLOCKED = 3,
+  SLEEP = 4,
 }process_state_t;
 
 typedef struct {
-  uint32_t id;
+  pid_t pid;
+  pid_t parent_pid;
   process_state_t state;
   char** argv;
   uint32_t text_frame;
