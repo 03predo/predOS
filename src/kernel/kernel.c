@@ -41,7 +41,6 @@ status_t kernel_schedule(pid_t* pid){
     }
   }
   *pid = MAX_PROCESSES;
-  SYS_LOGD("unable to find ready process");
   return STATUS_ERR;
 }
 
@@ -107,7 +106,7 @@ int kernel_execv(const char *pathname, char *const argv[]){
   SYS_LOGD("filename: %s", pathname);
 
   process_control_block_t* pcb = pcb_curr;
-  if(pcb->argv != NULL) free(pcb->argv);
+  //if(pcb->argv != NULL) free(pcb->argv);
 
   uint32_t arg_num = 0;
   while(argv[arg_num] != NULL){
@@ -118,10 +117,11 @@ int kernel_execv(const char *pathname, char *const argv[]){
   pcb->argv = malloc(sizeof(char*)*(arg_num + 1));
   if(pcb->argv == NULL) return -1;
   for(uint32_t i = 0; i < arg_num; ++i){
-    pcb->argv[i] = malloc(sizeof(char)*(strlen(argv[i]) + 1));
-    if(pcb->argv == NULL) return -1;
+    uint32_t arg_len = strlen(argv[i]);
+    pcb->argv[i] = malloc(sizeof(char)*(arg_len + 1));
+    if(pcb->argv[i] == NULL) return -1;
     if(strcpy(pcb->argv[i], argv[i]) == NULL) return -1;
-    SYS_LOGI("pcb->argv[%d]: %s", i, pcb->argv[i]);
+    SYS_LOGD("pcb->argv[%d]=%s", i, pcb->argv[i]);
   }
   pcb->argv[arg_num] = NULL; 
    
@@ -202,6 +202,7 @@ void kernel_exit(int exit_status){
       pcb_parent->stack_pointer[2] = pcb_curr->pid;
       pcb_parent->stack_pointer[3] = exit_status;
       pcb_parent->state = READY;
+      wait_queue[i] = -1;
     }
   }
 

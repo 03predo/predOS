@@ -24,16 +24,9 @@ int main(){
     printf("fork failed\n");
     return -1;
   }else if(child_pid == 0){
-    while(1){
-      printf("child 2\n");
-      usleep(1000000);
-    }
-  }else{
-    while(1){
-      printf("parent: %d\n", child_pid);
-      usleep(1000000);
-    }
+    char *args[] = {"shell", NULL};
+    execv(args[0], args);
   }
-  while(1);
+  while(1) usleep(1000000000);
   return 0;
 }
