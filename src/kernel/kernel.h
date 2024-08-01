@@ -17,6 +17,7 @@
 
 status_t kernel_context_save(uint32_t* sp);
 status_t kernel_context_switch();
+status_t kernel_read_queue_update(int fd, uint32_t size);
 
 int kernel_open(const char *pathname, int flags);
 int kernel_close(int file);

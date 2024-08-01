@@ -27,6 +27,7 @@ int main(){
     char *args[] = {"shell", NULL};
     execv(args[0], args);
   }
-  while(1) usleep(1000000000);
+
+  while(1) usleep(0);
   return 0;
 }

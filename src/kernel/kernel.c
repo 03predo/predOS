@@ -24,6 +24,15 @@ int kernel_init(void) __attribute__((naked)) __attribute__((section(".text.boot.
 static process_control_block_t pcb_list[MAX_PROCESSES];
 process_control_block_t* pcb_curr = NULL;
 
+typedef struct {
+  pid_t pid;
+  int fd;
+  uint32_t size;
+  uint8_t* buf;
+} read_transaction_t;
+
+read_transaction_t read_queue[MAX_PROCESSES];
+
 pid_t wait_queue[MAX_PROCESSES];
 
 status_t kernel_schedule(pid_t* pid){
@@ -57,6 +66,32 @@ status_t kernel_context_switch(uint32_t* sp){
   return STATUS_OK;
 }
 
+status_t kernel_read_queue_update(int fd, uint32_t size){
+  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+    if((read_queue[i].pid != -1) && (read_queue[i].fd == fd) && (read_queue[i].size <= size)){
+      if(fd != STDIN_FILENO){ 
+        return STATUS_OK;
+      }
+      
+      process_control_block_t* pcb = &pcb_list[read_queue[i].pid];
+      STATUS_OK_OR_RETURN(proc_frame_map(pcb));
+
+      int bytes_read = -1;
+      STATUS_OK_OR_RETURN(uart_read(read_queue[i].buf, read_queue[i].size, &bytes_read));
+      if(bytes_read != read_queue[i].size){
+        SYS_LOGE("uart_read failed");
+        return STATUS_ERR;
+      }
+      
+      pcb->state = READY; 
+      pcb->stack_pointer[2] = bytes_read;
+      STATUS_OK_OR_RETURN(proc_frame_map(pcb_curr));
+      return STATUS_OK;
+    }
+  }
+  return STATUS_ERR;
+}
+
 int kernel_open(const char *pathname, int flags){
   int fd = -1;
   if(fat_open_file(pathname, flags, &fd) != STATUS_OK){
@@ -75,8 +110,32 @@ int kernel_close(int file){
 
 int kernel_read(int file, char *ptr, int len){
   int bytes_read = -1;
+  if(file == STDIN_FILENO){
+    if(uart_read(ptr, len, &bytes_read) != STATUS_OK){
+      SYS_LOGE("uart_read failed");
+      return -1;
+    }
+    if(bytes_read == len){
+      return bytes_read;
+    }
+    for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+      if(read_queue[i].pid == -1){
+        read_queue[i].pid = pcb_curr->pid;
+        read_queue[i].fd = STDIN_FILENO;
+        read_queue[i].buf = ptr;
+        read_queue[i].size = len;
+        break;
+      }
+    }
+    pcb_curr->state = BLOCKED;
+    pid_t pid = MAX_PROCESSES;
+    while(kernel_schedule(&pid) != STATUS_OK);
+    pcb_curr = &pcb_list[pid];
+
+    return -1;
+  }
   if(fat_read_file(file, ptr, len, &bytes_read) != STATUS_OK){
-    SYS_LOGE("fat_open_file failed");
+    SYS_LOGE("fat_read_file failed");
   }
   return bytes_read;
 }
@@ -106,6 +165,8 @@ int kernel_execv(const char *pathname, char *const argv[]){
   SYS_LOGD("filename: %s", pathname);
 
   process_control_block_t* pcb = pcb_curr;
+  pcb_curr->virtual_stack_frame = pcb_curr->stack_frame;
+  pcb_curr->stack_pointer = (uint32_t*)(pcb_curr->stack_frame + SECTION_SIZE);
   //if(pcb->argv != NULL) free(pcb->argv);
 
   uint32_t arg_num = 0;
@@ -305,6 +366,7 @@ int kernel_start(){
       .timestamp = 0
     };
     wait_queue[i] = -1;
+    read_queue[i].pid = -1;
   }
 
   pcb_curr = &pcb_list[0];
