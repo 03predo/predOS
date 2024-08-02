@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #define MAX_COMMAND_SIZE 1024
 #define MAX_ARG_NUM 10
@@ -18,8 +20,10 @@ int main(){
   write(STDOUT_FILENO, SHELL_TOKEN, sizeof(SHELL_TOKEN));
   while(read(STDIN_FILENO, &c, 1) != -1){
     if(c == '\b'){
-      write(STDOUT_FILENO, "\b \b", 3);
-      index--;
+      if(index > 0){
+        write(STDOUT_FILENO, "\b \b", 3);
+        index--;
+      }
     }else if(c == '\r'){
       write(STDOUT_FILENO, "\r\n", 2);
       cmd[index] = '\0';
@@ -58,4 +62,19 @@ void cmd_handler(char* cmd, uint32_t size){
   for(uint32_t i = 0; i <= arg_num; ++i){
     printf("args[%d]: %s\r\n", i, args[i]);
   }
+
+  args[arg_num + 1] = NULL;
+  pid_t child_pid = fork();
+  if(child_pid == -1){
+    printf("fork failed\n");
+    return;
+  }else if(child_pid == 0){
+    if(execv(args[0], args) == -1){
+      _exit(-1);
+    }
+  }else{
+    int status = -1;
+    pid_t child_pid = wait(&status);
+    printf("exit status: %d\n", status);
+  }  
 }

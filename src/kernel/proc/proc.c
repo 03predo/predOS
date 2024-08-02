@@ -6,13 +6,13 @@ status_t proc_create(process_control_block_t* pcb){
     SYS_LOGE("failed to allocate frame");
     return STATUS_ERR;
   }
-  SYS_LOGI("got frame: %#x", pcb->text_frame);
+  SYS_LOGD("got frame: %#x", pcb->text_frame);
 
   if(mmu_allocate_frame(&pcb->stack_frame) != STATUS_OK){
     SYS_LOGE("failed to allocate frame");
     return STATUS_ERR;
   }
-  SYS_LOGI("got frame: %#x", pcb->stack_frame);
+  SYS_LOGD("got frame: %#x", pcb->stack_frame);
   pcb->virtual_stack_frame = pcb->stack_frame;
 
   pcb->stack_pointer = (uint32_t*)(pcb->stack_frame + SECTION_SIZE);

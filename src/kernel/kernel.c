@@ -8,6 +8,7 @@
 #include "sys_log.h"
 #include "gpio.h"
 #include "sys_timer.h"
+#include "arm_timer.h"
 #include "uart.h"
 #include "util.h"
 #include "fat.h"
@@ -165,8 +166,7 @@ int kernel_execv(const char *pathname, char *const argv[]){
   SYS_LOGD("filename: %s", pathname);
 
   process_control_block_t* pcb = pcb_curr;
-  pcb_curr->virtual_stack_frame = pcb_curr->stack_frame;
-  pcb_curr->stack_pointer = (uint32_t*)(pcb_curr->stack_frame + SECTION_SIZE);
+  
   //if(pcb->argv != NULL) free(pcb->argv);
 
   uint32_t arg_num = 0;
@@ -189,10 +189,10 @@ int kernel_execv(const char *pathname, char *const argv[]){
   int fd = kernel_open(pathname, O_RDWR);
   if(fd == -1){
     SYS_LOGE("open failed"); 
-    proc_destroy(pcb);
+    //proc_destroy(pcb);
     return -1;
   }
-  SYS_LOGI("opened file");
+  SYS_LOGD("opened file");
 
   int file_size = kernel_lseek(fd, 0, SEEK_END);
   if(file_size == -1){
@@ -200,7 +200,7 @@ int kernel_execv(const char *pathname, char *const argv[]){
     proc_destroy(pcb);
     return -1;
   }
-  SYS_LOGI("file size: %d", file_size);
+  SYS_LOGD("file size: %d", file_size);
 
   int offset = kernel_lseek(fd, 0, SEEK_SET);
   if(offset == -1){
@@ -209,9 +209,11 @@ int kernel_execv(const char *pathname, char *const argv[]){
     return -1;
   }
 
+  pcb_curr->virtual_stack_frame = pcb_curr->stack_frame;
+  pcb_curr->stack_pointer = (uint32_t*)(pcb_curr->stack_frame + SECTION_SIZE);
   STATUS_OK_OR_RETURN(proc_frame_write_enable(pcb_curr));
   int bytes_read = kernel_read(fd, (void*)pcb->text_frame, file_size);
-  SYS_LOGI("bytes_read: %d", bytes_read); 
+  SYS_LOGD("bytes_read: %d", bytes_read); 
    
   *(--pcb->stack_pointer) = (uint32_t)_exit; // lr
   *(--pcb->stack_pointer) = 0xDEADBEEF; // r12
@@ -252,14 +254,14 @@ void kernel_exit(int exit_status){
 
   for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
     if(wait_queue[i] == pcb_curr->parent_pid){
-      SYS_LOGI("unblocking parent %d", pcb_curr->parent_pid);
+      SYS_LOGD("unblocking parent %d", pcb_curr->parent_pid);
       process_control_block_t* pcb_parent = &pcb_list[wait_queue[i]];
       if(proc_frame_map(pcb_parent)){
         SYS_LOGE("failed to frame write enable");
         return;
       }
       uint32_t* child_exit_status = (uint32_t*)pcb_parent->stack_pointer[2];
-      SYS_LOGI("child_exit_status: %#x", child_exit_status);
+      SYS_LOGD("child_exit_status: %#x", child_exit_status);
       pcb_parent->stack_pointer[2] = pcb_curr->pid;
       pcb_parent->stack_pointer[3] = exit_status;
       pcb_parent->state = READY;
@@ -347,6 +349,7 @@ int kernel_usleep(uint32_t timeout){
 
 int kernel_start(){
   if(gpio_func(LED_PIN, GPIO_OUTPUT) != STATUS_OK) exit(-1);
+  //if(arm_timer_init(0x800) != STATUS_OK) exit(-1);
   if(uart_init(115200) != STATUS_OK) exit(-1);
   if(fat_init() != STATUS_OK) exit(-1); 
   if(mmu_frame_table_init() != STATUS_OK) exit(-1);

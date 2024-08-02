@@ -70,7 +70,7 @@ static status_t svc_yield(uint32_t* sp){
 }
 
 static status_t svc_wait(uint32_t* sp){
-  SYS_LOGI("exit_status: %#x", sp[0]);
+  SYS_LOGD("exit_status: %#x", sp[0]);
   kernel_wait();
   return STATUS_OK;
 }

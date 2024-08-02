@@ -75,8 +75,6 @@ void __attribute__((interrupt("IRQ"))) interrupt_handler(void){
     if(irq_status & AUX_MINI_UART_IRQ_STATUS_RECEIVE_IRQ){
       kernel_read_queue_update(STDIN_FILENO, rx_size);
     }
-  }else{
-    gpio_pulse(LED_PIN, 2);
   }
 
   static int lit = 0;
