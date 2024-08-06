@@ -8,6 +8,7 @@
 #include "sys_log.h"
 #include "gpio.h"
 #include "sys_timer.h"
+#include "arm_timer.h"
 #include "uart.h"
 #include "util.h"
 #include "fat.h"
@@ -24,13 +25,24 @@ int kernel_init(void) __attribute__((naked)) __attribute__((section(".text.boot.
 static process_control_block_t pcb_list[MAX_PROCESSES];
 process_control_block_t* pcb_curr = NULL;
 
-status_t kernel_schedule(uint32_t* pid){
+typedef struct {
+  pid_t pid;
+  int fd;
+  uint32_t size;
+  uint8_t* buf;
+} read_transaction_t;
+
+read_transaction_t read_queue[MAX_PROCESSES];
+
+pid_t wait_queue[MAX_PROCESSES];
+
+status_t kernel_schedule(pid_t* pid){
   for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
-    *pid = (pcb_curr->id + (i + 1)) % MAX_PROCESSES;
+    *pid = (pcb_curr->pid + (i + 1)) % MAX_PROCESSES;
     if(pcb_list[*pid].state == READY){
       SYS_LOGD("found ready process %d", *pid);
       return STATUS_OK;
-    }else if(pcb_list[*pid].state == BLOCKED){
+    }else if(pcb_list[*pid].state == SLEEP){
       if(pcb_list[*pid].timestamp < sys_uptime()){
         pcb_list[*pid].state = READY;
         SYS_LOGD("unblocking process %d", *pid);
@@ -39,7 +51,6 @@ status_t kernel_schedule(uint32_t* pid){
     }
   }
   *pid = MAX_PROCESSES;
-  SYS_LOGD("unable to find ready process");
   return STATUS_ERR;
 }
 
@@ -54,6 +65,32 @@ status_t kernel_context_switch(uint32_t* sp){
   *sp = (uint32_t)pcb_curr->stack_pointer;
   pcb_curr->state = RUNNING;
   return STATUS_OK;
+}
+
+status_t kernel_read_queue_update(int fd, uint32_t size){
+  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+    if((read_queue[i].pid != -1) && (read_queue[i].fd == fd) && (read_queue[i].size <= size)){
+      if(fd != STDIN_FILENO){ 
+        return STATUS_OK;
+      }
+      
+      process_control_block_t* pcb = &pcb_list[read_queue[i].pid];
+      STATUS_OK_OR_RETURN(proc_frame_map(pcb));
+
+      int bytes_read = -1;
+      STATUS_OK_OR_RETURN(uart_read(read_queue[i].buf, read_queue[i].size, &bytes_read));
+      if(bytes_read != read_queue[i].size){
+        SYS_LOGE("uart_read failed");
+        return STATUS_ERR;
+      }
+      
+      pcb->state = READY; 
+      pcb->stack_pointer[2] = bytes_read;
+      STATUS_OK_OR_RETURN(proc_frame_map(pcb_curr));
+      return STATUS_OK;
+    }
+  }
+  return STATUS_ERR;
 }
 
 int kernel_open(const char *pathname, int flags){
@@ -74,8 +111,32 @@ int kernel_close(int file){
 
 int kernel_read(int file, char *ptr, int len){
   int bytes_read = -1;
+  if(file == STDIN_FILENO){
+    if(uart_read(ptr, len, &bytes_read) != STATUS_OK){
+      SYS_LOGE("uart_read failed");
+      return -1;
+    }
+    if(bytes_read == len){
+      return bytes_read;
+    }
+    for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+      if(read_queue[i].pid == -1){
+        read_queue[i].pid = pcb_curr->pid;
+        read_queue[i].fd = STDIN_FILENO;
+        read_queue[i].buf = ptr;
+        read_queue[i].size = len;
+        break;
+      }
+    }
+    pcb_curr->state = BLOCKED;
+    pid_t pid = MAX_PROCESSES;
+    while(kernel_schedule(&pid) != STATUS_OK);
+    pcb_curr = &pcb_list[pid];
+
+    return -1;
+  }
   if(fat_read_file(file, ptr, len, &bytes_read) != STATUS_OK){
-    SYS_LOGE("fat_open_file failed");
+    SYS_LOGE("fat_read_file failed");
   }
   return bytes_read;
 }
@@ -101,54 +162,77 @@ int kernel_lseek(int file, int offset, int whence){
   return new_offset;
 }
 
-int kernel_execv(const char *pathname, char *const argv[]){
-  SYS_LOGD("filename: %s", pathname);
-
-  process_control_block_t* pcb = pcb_curr;
-  if(pcb->argv != NULL) free(pcb->argv);
-
+status_t kernel_set_args(process_control_block_t* pcb, char* const argv[]){
   uint32_t arg_num = 0;
   while(argv[arg_num] != NULL){
+    SYS_LOGI("argv[%d]=%s", arg_num, argv[arg_num]);
     arg_num++;
   }
 
-  SYS_LOGD("arg_num: %d", arg_num);
-  pcb->argv = malloc(sizeof(char*)*(arg_num + 1));
-  if(pcb->argv == NULL) return -1;
+  pcb->stack_pointer -= arg_num + 1;
+  pcb->argv = (char**)pcb->stack_pointer;
+  SYS_LOGI("pcb->argv: %#x", pcb->argv);
+
   for(uint32_t i = 0; i < arg_num; ++i){
-    pcb->argv[i] = malloc(sizeof(char)*(strlen(argv[i]) + 1));
-    if(pcb->argv == NULL) return -1;
-    if(strcpy(pcb->argv[i], argv[i]) == NULL) return -1;
-    SYS_LOGI("pcb->argv[%d]: %s", i, pcb->argv[i]);
+    uint32_t arg_size = 0;
+    while(argv[i][arg_size] != '\0'){
+      arg_size++;
+    }
+    arg_size++;
+    SYS_LOGI("arg_size[%d]: %d", i, arg_size);
+
+    uint32_t offset = (arg_size + sizeof(uint32_t) - 1) / sizeof(uint32_t);
+
+    pcb->stack_pointer -= offset + 1;
+    pcb->argv[i] = (char*)pcb->stack_pointer;
+    
+    for(uint32_t j = 0; j < arg_size; ++j){
+      pcb->argv[i][j] = argv[i][j];
+    }
+    pcb->argv[i][arg_size] = '\0';
   }
-  pcb->argv[arg_num] = NULL; 
-   
+  pcb->argv[arg_num] = NULL;
+
+  arg_num = 0;
+  while(pcb->argv[arg_num] != NULL){
+    SYS_LOGI("pcb->argv[%d]: %s", arg_num, pcb->argv[arg_num]);
+    arg_num++;
+  }
+  return STATUS_OK;
+}
+
+int kernel_execv(const char *pathname, char *const argv[]){
+  SYS_LOGD("filename: %s", pathname); 
+
   int fd = kernel_open(pathname, O_RDWR);
   if(fd == -1){
     SYS_LOGE("open failed"); 
-    proc_destroy(pcb);
+    //proc_destroy(pcb);
     return -1;
   }
-  SYS_LOGI("opened file");
+  SYS_LOGD("opened file");
 
   int file_size = kernel_lseek(fd, 0, SEEK_END);
   if(file_size == -1){
     SYS_LOGE("lseek failed");
-    proc_destroy(pcb);
     return -1;
   }
-  SYS_LOGI("file size: %d", file_size);
+  SYS_LOGD("file size: %d", file_size);
 
   int offset = kernel_lseek(fd, 0, SEEK_SET);
   if(offset == -1){
     SYS_LOGE("lseek failed");
-    proc_destroy(pcb);
     return -1;
   }
 
+  process_control_block_t* pcb = pcb_curr;
+  pcb_curr->virtual_stack_frame = pcb_curr->stack_frame;
+  pcb_curr->stack_pointer = (uint32_t*)(pcb_curr->stack_frame + SECTION_SIZE);
   STATUS_OK_OR_RETURN(proc_frame_write_enable(pcb_curr));
+
+  kernel_set_args(pcb, argv);
   int bytes_read = kernel_read(fd, (void*)pcb->text_frame, file_size);
-  SYS_LOGI("bytes_read: %d", bytes_read); 
+  SYS_LOGD("bytes_read: %d", bytes_read); 
    
   *(--pcb->stack_pointer) = (uint32_t)_exit; // lr
   *(--pcb->stack_pointer) = 0xDEADBEEF; // r12
@@ -175,21 +259,40 @@ int kernel_execv(const char *pathname, char *const argv[]){
 }
 
 void kernel_exit(int exit_status){ 
-  SYS_LOGD("process %d exited with %d", pcb_curr->id, exit_status);
-  if(pcb_curr->argv != NULL) free(pcb_curr->argv);
-  //proc_frame_write_disable(pcb_curr);
+  SYS_LOGD("process %d exited with %d", pcb_curr->pid, exit_status);
+  if(proc_frame_write_disable(pcb_curr) != STATUS_OK){
+    SYS_LOGE("failed to frame write disable");
+    return;
+  }
   if(proc_destroy(pcb_curr) != STATUS_OK){
     SYS_LOGE("failed to destroy pcb");
     return;
   }
   pcb_curr->state = UNUSED;
 
-  uint32_t pid = MAX_PROCESSES;
+  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+    if(wait_queue[i] == pcb_curr->parent_pid){
+      SYS_LOGD("unblocking parent %d", pcb_curr->parent_pid);
+      process_control_block_t* pcb_parent = &pcb_list[wait_queue[i]];
+      if(proc_frame_map(pcb_parent)){
+        SYS_LOGE("failed to frame write enable");
+        return;
+      }
+      uint32_t* child_exit_status = (uint32_t*)pcb_parent->stack_pointer[2];
+      SYS_LOGD("child_exit_status: %#x", child_exit_status);
+      pcb_parent->stack_pointer[2] = pcb_curr->pid;
+      pcb_parent->stack_pointer[3] = exit_status;
+      pcb_parent->state = READY;
+      wait_queue[i] = -1;
+    }
+  }
+
+  pid_t pid = MAX_PROCESSES;
   while(kernel_schedule(&pid) != STATUS_OK);
   pcb_curr = &pcb_list[pid];
 }
 
-int kernel_fork(uint32_t sp, uint32_t fp){
+int kernel_fork(){
   process_control_block_t* pcb = NULL;
   for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
     if(pcb_list[i].state == UNUSED){
@@ -209,37 +312,62 @@ int kernel_fork(uint32_t sp, uint32_t fp){
   memcpy((void*)pcb->text_frame, (void*)pcb_curr->text_frame, SECTION_SIZE); 
   memcpy((void*)pcb->stack_frame, (void*)pcb_curr->stack_frame, SECTION_SIZE);  
 
-  pcb->stack_pointer = (uint32_t*)((sp - pcb_curr->stack_frame) + pcb->stack_frame);
+  pcb->stack_pointer = (uint32_t*)((((uint32_t)pcb_curr->stack_pointer) - pcb_curr->stack_frame) + pcb->stack_frame);
   pcb->stack_pointer[2] = 0; // set r0
-  pcb->stack_pointer = (uint32_t*)(sp);
+  pcb->stack_pointer = (uint32_t*)(pcb_curr->stack_pointer);
+  pcb->parent_pid = pcb_curr->pid;
   pcb->state = READY; 
 
   STATUS_OK_OR_RETURN(proc_frame_write_disable(pcb));
-  return pcb->id;
+  return pcb->pid;
+}
+
+int kernel_wait(){
+  pcb_curr->state = BLOCKED;
+
+  int index = -1;
+  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+    if(wait_queue[i] == -1){
+      index = i;
+      break;
+    }
+  }
+
+  if(index == -1){
+    SYS_LOGE("can't place pid in wait queue");
+    return -1;
+  }
+
+  wait_queue[index] = pcb_curr->pid;
+
+  pid_t pid = MAX_PROCESSES;
+  while(kernel_schedule(&pid) != STATUS_OK);
+  pcb_curr = &pcb_list[pid];
+  return -1;
 }
 
 int kernel_yield(){
   pcb_curr->state = READY;
 
-  uint32_t pid = MAX_PROCESSES;
+  pid_t pid = MAX_PROCESSES;
   while(kernel_schedule(&pid) != STATUS_OK);
   pcb_curr = &pcb_list[pid];
   return 0;
 }
 
 int kernel_usleep(uint32_t timeout){
-  pcb_curr->state = BLOCKED;
+  pcb_curr->state = SLEEP;
   pcb_curr->timestamp = sys_uptime() + timeout;
 
-  uint32_t pid = MAX_PROCESSES;
+  pid_t pid = MAX_PROCESSES;
   while(kernel_schedule(&pid) != STATUS_OK);
   pcb_curr = &pcb_list[pid];
   return 0;
 }
 
-
 int kernel_start(){
   if(gpio_func(LED_PIN, GPIO_OUTPUT) != STATUS_OK) exit(-1);
+  //if(arm_timer_init(0x800) != STATUS_OK) exit(-1);
   if(uart_init(115200) != STATUS_OK) exit(-1);
   if(fat_init() != STATUS_OK) exit(-1); 
   if(mmu_frame_table_init() != STATUS_OK) exit(-1);
@@ -249,7 +377,8 @@ int kernel_start(){
 
   for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
     pcb_list[i] = (process_control_block_t) {
-      .id = i,
+      .pid = i,
+      .parent_pid = -1,
       .state = UNUSED,
       .argv = NULL,
       .text_frame = 0,
@@ -257,9 +386,12 @@ int kernel_start(){
       .stack_pointer = NULL,
       .timestamp = 0
     };
+    wait_queue[i] = -1;
+    read_queue[i].pid = -1;
   }
 
   pcb_curr = &pcb_list[0];
+  pcb_curr->parent_pid = -1;
   proc_create(pcb_curr);
 
   char *args[] = {"init", NULL};

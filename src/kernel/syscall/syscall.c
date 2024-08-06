@@ -69,8 +69,14 @@ int _fork(){
   return pid;
 }
 
-int _wait(){
-  return -1;
+int _wait(int* status){
+  asm inline("SVC "XSTR(SVC_WAIT));
+  int pid = -1;
+  GET_R0(pid);
+  int exit_status = -1;
+  GET_R1(exit_status);
+  *status = exit_status;
+  return pid;
 }
 
 int yield(){

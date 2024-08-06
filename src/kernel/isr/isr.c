@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include "bcm2835.h"
 #include "kernel.h"
 #include "gpio.h"
@@ -23,8 +24,6 @@ void __attribute__((interrupt("UNDEF"))) undefined_instruction_handler(uint32_t 
 
 uint32_t software_interrupt_handler(uint32_t prev_sp){
   asm inline("cpsie i"); 
-  SYS_LOGD("SOFTWARE INTERRUPT");
-
   uint32_t spsr = *((uint32_t*)prev_sp);
   uint32_t lr = *((uint32_t*)(prev_sp + 4));
   uint32_t svc = (*((uint32_t*)(lr - 4))) & 0xffffff;
@@ -69,9 +68,13 @@ void data_abort_handler(uint32_t lr, uint32_t dfsr){
 
 void __attribute__((interrupt("IRQ"))) interrupt_handler(void){
   if(!(AUX->MINI_UART_IRQ_STATUS & 0b001)){
-    uart_irq_handler();
-  }else{
-    gpio_pulse(LED_PIN, 2);
+    uint8_t irq_status = AUX->MINI_UART_IRQ_STATUS;
+    uart_irq_handler(irq_status);
+    uint32_t rx_size;
+    uart_get_rx_size(&rx_size);
+    if(irq_status & AUX_MINI_UART_IRQ_STATUS_RECEIVE_IRQ){
+      kernel_read_queue_update(STDIN_FILENO, rx_size);
+    }
   }
 
   static int lit = 0;

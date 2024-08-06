@@ -472,7 +472,7 @@ status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_nu
   uint32_t read_sector = fat.partition_base_sector + fat.data_base_sector + (absolute_cluster - 2) * bpb->sectors_per_cluster + sector_offset;
 
   if(num_blocks == 1){
-    SYS_LOGI("read_sector: %#x", read_sector);
+    SYS_LOGD("read_sector: %#x", read_sector);
     STATUS_OK_OR_RETURN(emmc_read_block(read_sector, 1, block));
     return STATUS_OK;
   }
@@ -485,13 +485,13 @@ status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_nu
   uint32_t prev_cluster = absolute_cluster;
   uint32_t sectors_in_first_block = 0;
   uint32_t sectors_in_last_block = 0;
-  SYS_LOGI("abs: %#x, num_clusters: %d", absolute_cluster, num_clusters);
+  SYS_LOGD("abs: %#x, num_clusters: %d", absolute_cluster, num_clusters);
   for(uint32_t i = 0; i < num_clusters; ++i){
     next_cluster = cluster_table[prev_cluster];
     if(prev_cluster == (next_cluster - 1)){
       consecutive_clusters++;
     }else{
-      SYS_LOGI("next: %#x, prev: %#x", next_cluster, prev_cluster);
+      SYS_LOGD("next: %#x, prev: %#x", next_cluster, prev_cluster);
       while(1);
       sectors_in_first_block = (bpb->sectors_per_cluster - (read_sector % bpb->sectors_per_cluster));
       sectors_in_last_block = (num_blocks - sectors_in_first_block) % bpb->sectors_per_cluster;
@@ -625,7 +625,7 @@ status_t fat_read_file(int fd, char *buf, int len, int* bytes_read){
   uint32_t block_num = len / EMMC_BLOCK_SIZE;
   if(((len % EMMC_BLOCK_SIZE) + block_index) > EMMC_BLOCK_SIZE) block_num++;
 
-  SYS_LOGI("file_offset: %d, block_offset: %d, block_num: %d", inode->file_offset, block_offset, block_num);
+  SYS_LOGD("file_offset: %d, block_offset: %d, block_num: %d", inode->file_offset, block_offset, block_num);
   
   uint32_t buf_offset = 0;
   emmc_block_t block;

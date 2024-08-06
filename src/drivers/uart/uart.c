@@ -106,24 +106,13 @@ status_t uart_handle_command(char* cmd, uint32_t len){
   }
 }
 
-status_t uart_irq_handler(){ 
-  static uint8_t lit = 0;
-  uint8_t irq_status = AUX->MINI_UART_IRQ_STATUS;
+status_t uart_irq_handler(uint8_t irq_status){  
   if(irq_status & AUX_MINI_UART_IRQ_STATUS_RECEIVE_IRQ){ 
     uint8_t c = AUX->MINI_UART_IO;
     switch(ud.state){
-      case STANDBY:
-        if(c == '\r'){
-          uart_print("\n", 1);
-          ud.rx_buf[ud.rx_indx + ud.rx_size] = '\0';
-          uart_handle_command(&ud.rx_buf[ud.rx_indx], ud.rx_size);
-          ud.rx_indx = (ud.rx_indx + ud.rx_size) % UART_RX_BUFFER_SIZE;
-          ud.rx_size = 0;
-        }else{
-          ud.rx_buf[ud.rx_indx + ud.rx_size] = c;
-          ud.rx_size = (ud.rx_size + 1) % UART_RX_BUFFER_SIZE;
-          uart_print(&c, 1);
-        }
+      case STANDBY: 
+        ud.rx_buf[ud.rx_indx + ud.rx_size] = c;
+        ud.rx_size = (ud.rx_size + 1) % UART_RX_BUFFER_SIZE;
         break;
       case IMAGE_HEADER:
         ud.image_header.fields.image_size += (c << ((ud.received_bytes) * 8));
@@ -174,7 +163,25 @@ status_t uart_irq_handler(){
   return STATUS_OK;
 }
 
+status_t uart_get_rx_size(uint32_t* rx_size){
+  *rx_size = ud.rx_size;
+  return STATUS_OK;
+}
 
+status_t uart_read(char* buf, int len, int* bytes_read){
+  if(len > ud.rx_size){
+    *bytes_read = 0;
+    return STATUS_OK;
+  }
+  
+  for(uint32_t i = 0; i < len; ++i){
+    buf[i] = ud.rx_buf[ud.rx_indx + i];
+  }
+  ud.rx_indx = (ud.rx_size + 1) % UART_RX_BUFFER_SIZE; 
+  ud.rx_size -= len;
+  *bytes_read = len;
+  return STATUS_OK;
+}
 
 status_t uart_print(char* c, int len){
   while((ud.tx_size + len) > UART_TX_BUFFER_SIZE); 
