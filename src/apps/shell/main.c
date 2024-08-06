@@ -3,13 +3,14 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#include "app_log.h"
+
 #define MAX_COMMAND_SIZE 1024
 #define MAX_ARG_NUM 10
 #define SHELL_TOKEN "predOS# "
 
 char cmd[MAX_COMMAND_SIZE];
 char* args[MAX_ARG_NUM + 1]; // +1 for NULL
-
 
 void cmd_handler(char* cmd, uint32_t size);
 
@@ -46,7 +47,7 @@ int main(){
 }
 
 void cmd_handler(char* cmd, uint32_t size){
-  printf("cmd: %s\r\n", cmd);
+  APP_LOGD("cmd: %s", cmd);
   uint32_t arg_num = 0;
   args[0] = cmd;
   for(uint32_t i = 0; i < size; ++i){
@@ -60,13 +61,13 @@ void cmd_handler(char* cmd, uint32_t size){
   }
 
   for(uint32_t i = 0; i <= arg_num; ++i){
-    printf("args[%d]: %s\r\n", i, args[i]);
+    APP_LOGD("args[%d]: %s", i, args[i]);
   }
 
   args[arg_num + 1] = NULL;
   pid_t child_pid = fork();
   if(child_pid == -1){
-    printf("fork failed\n");
+    APP_LOGE("fork failed");
     return;
   }else if(child_pid == 0){
     if(execv(args[0], args) == -1){
@@ -75,6 +76,6 @@ void cmd_handler(char* cmd, uint32_t size){
   }else{
     int status = -1;
     pid_t child_pid = wait(&status);
-    printf("exit status: %d\n", status);
+    APP_LOGI("exit status: %d", status);
   }  
 }

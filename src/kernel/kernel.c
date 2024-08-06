@@ -162,30 +162,48 @@ int kernel_lseek(int file, int offset, int whence){
   return new_offset;
 }
 
-int kernel_execv(const char *pathname, char *const argv[]){
-  SYS_LOGD("filename: %s", pathname);
-
-  process_control_block_t* pcb = pcb_curr;
-  
-  //if(pcb->argv != NULL) free(pcb->argv);
-
+status_t kernel_set_args(process_control_block_t* pcb, char* const argv[]){
   uint32_t arg_num = 0;
   while(argv[arg_num] != NULL){
+    SYS_LOGI("argv[%d]=%s", arg_num, argv[arg_num]);
     arg_num++;
   }
 
-  SYS_LOGD("arg_num: %d", arg_num);
-  pcb->argv = malloc(sizeof(char*)*(arg_num + 1));
-  if(pcb->argv == NULL) return -1;
+  pcb->stack_pointer -= arg_num + 1;
+  pcb->argv = (char**)pcb->stack_pointer;
+  SYS_LOGI("pcb->argv: %#x", pcb->argv);
+
   for(uint32_t i = 0; i < arg_num; ++i){
-    uint32_t arg_len = strlen(argv[i]);
-    pcb->argv[i] = malloc(sizeof(char)*(arg_len + 1));
-    if(pcb->argv[i] == NULL) return -1;
-    if(strcpy(pcb->argv[i], argv[i]) == NULL) return -1;
-    SYS_LOGD("pcb->argv[%d]=%s", i, pcb->argv[i]);
+    uint32_t arg_size = 0;
+    while(argv[i][arg_size] != '\0'){
+      arg_size++;
+    }
+    arg_size++;
+    SYS_LOGI("arg_size[%d]: %d", i, arg_size);
+
+    uint32_t offset = (arg_size + sizeof(uint32_t) - 1) / sizeof(uint32_t);
+
+    pcb->stack_pointer -= offset + 1;
+    pcb->argv[i] = (char*)pcb->stack_pointer;
+    
+    for(uint32_t j = 0; j < arg_size; ++j){
+      pcb->argv[i][j] = argv[i][j];
+    }
+    pcb->argv[i][arg_size] = '\0';
   }
-  pcb->argv[arg_num] = NULL; 
-   
+  pcb->argv[arg_num] = NULL;
+
+  arg_num = 0;
+  while(pcb->argv[arg_num] != NULL){
+    SYS_LOGI("pcb->argv[%d]: %s", arg_num, pcb->argv[arg_num]);
+    arg_num++;
+  }
+  return STATUS_OK;
+}
+
+int kernel_execv(const char *pathname, char *const argv[]){
+  SYS_LOGD("filename: %s", pathname); 
+
   int fd = kernel_open(pathname, O_RDWR);
   if(fd == -1){
     SYS_LOGE("open failed"); 
@@ -197,7 +215,6 @@ int kernel_execv(const char *pathname, char *const argv[]){
   int file_size = kernel_lseek(fd, 0, SEEK_END);
   if(file_size == -1){
     SYS_LOGE("lseek failed");
-    proc_destroy(pcb);
     return -1;
   }
   SYS_LOGD("file size: %d", file_size);
@@ -205,13 +222,15 @@ int kernel_execv(const char *pathname, char *const argv[]){
   int offset = kernel_lseek(fd, 0, SEEK_SET);
   if(offset == -1){
     SYS_LOGE("lseek failed");
-    proc_destroy(pcb);
     return -1;
   }
 
+  process_control_block_t* pcb = pcb_curr;
   pcb_curr->virtual_stack_frame = pcb_curr->stack_frame;
   pcb_curr->stack_pointer = (uint32_t*)(pcb_curr->stack_frame + SECTION_SIZE);
   STATUS_OK_OR_RETURN(proc_frame_write_enable(pcb_curr));
+
+  kernel_set_args(pcb, argv);
   int bytes_read = kernel_read(fd, (void*)pcb->text_frame, file_size);
   SYS_LOGD("bytes_read: %d", bytes_read); 
    
@@ -241,7 +260,6 @@ int kernel_execv(const char *pathname, char *const argv[]){
 
 void kernel_exit(int exit_status){ 
   SYS_LOGD("process %d exited with %d", pcb_curr->pid, exit_status);
-  if(pcb_curr->argv != NULL) free(pcb_curr->argv);
   if(proc_frame_write_disable(pcb_curr) != STATUS_OK){
     SYS_LOGE("failed to frame write disable");
     return;
