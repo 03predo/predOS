@@ -471,9 +471,9 @@ status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_nu
   STATUS_OK_OR_RETURN(fat_get_absolute_cluster(dir_entry, cluster_offset, &absolute_cluster));
   uint32_t read_sector = fat.partition_base_sector + fat.data_base_sector + (absolute_cluster - 2) * bpb->sectors_per_cluster + sector_offset;
 
-  if(num_blocks == 1){
+  if((num_blocks + sector_offset) <= bpb->sectors_per_cluster){
     SYS_LOGD("read_sector: %#x", read_sector);
-    STATUS_OK_OR_RETURN(emmc_read_block(read_sector, 1, block));
+    STATUS_OK_OR_RETURN(emmc_read_block(read_sector, num_blocks, block));
     return STATUS_OK;
   }
 
@@ -486,6 +486,7 @@ status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_nu
   uint32_t sectors_in_first_block = 0;
   uint32_t sectors_in_last_block = 0;
   SYS_LOGD("abs: %#x, num_clusters: %d", absolute_cluster, num_clusters);
+
   for(uint32_t i = 0; i < num_clusters; ++i){
     next_cluster = cluster_table[prev_cluster];
     if(prev_cluster == (next_cluster - 1)){

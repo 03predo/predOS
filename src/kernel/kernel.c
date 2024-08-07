@@ -205,17 +205,16 @@ status_t kernel_set_args(process_control_block_t* pcb, char* const argv[]){
 }
 
 int kernel_execv(const char *pathname, char *const argv[]){
+  SYS_LOGD("filename: %s %x", pathname, argv[0]); 
+  process_control_block_t pcb = *pcb_curr;
 
-  /*
-   * 1. read file header
-   * 2. for each program header
-   *    - load into physical addr + pcb->text_frame
-   *    - set lr to entry point
-   *
-   * NOTE: in proc_map we need to map pcb->text_frame + 0x8000 to 0x8000
-   */
-
-  SYS_LOGD("filename: %s", pathname); 
+  pcb.virtual_stack_frame = pcb.stack_frame;
+  pcb.stack_pointer = (uint32_t*)(pcb.stack_frame + SECTION_SIZE);
+  STATUS_OK_OR_RETURN(proc_frame_write_enable(&pcb));
+  if(kernel_set_args(&pcb, argv) != STATUS_OK){
+    SYS_LOGE("failed to set args");
+    return -1;
+  }
 
   int fd = kernel_open(pathname, O_RDWR);
   if(fd == -1){
@@ -235,7 +234,6 @@ int kernel_execv(const char *pathname, char *const argv[]){
     return -1;
   }
 
-  STATUS_OK_OR_RETURN(proc_frame_write_enable(pcb_curr));
 
   elf_program_header_t ph;
   for(uint32_t i = 0; i < eh.program_header_num; ++i){
@@ -244,7 +242,6 @@ int kernel_execv(const char *pathname, char *const argv[]){
       SYS_LOGE("read failed");
       return -1;
     }
-    SYS_LOGI("program header %d", i);
     elf_print_program_header(ph);
 
     if(ph.type != ELF_SEGMENT_LOADABLE) continue;
@@ -267,7 +264,7 @@ int kernel_execv(const char *pathname, char *const argv[]){
       return -1;
     }
 
-    bytes_read = kernel_read(fd, (void*)(pcb_curr->text_frame + ph.physical_address), ph.size_in_file);  
+    bytes_read = kernel_read(fd, (void*)(pcb.text_frame + ph.physical_address), ph.size_in_file);  
     if(bytes_read != ph.size_in_file){
       SYS_LOGE("read failed");
       return -1;
@@ -281,86 +278,25 @@ int kernel_execv(const char *pathname, char *const argv[]){
     
   }
 
-  SYS_LOGI("finished loading file");
-  /*
-  proc_frame_map(pcb_curr);
-  uint32_t* entry_instruction = (uint32_t*)0x14a40;
-  SYS_LOGI("entry_instruction: %#x", *entry_instruction);
-*/
-  pcb_curr->virtual_stack_frame = pcb_curr->stack_frame;
-  pcb_curr->stack_pointer = (uint32_t*)(pcb_curr->stack_frame + SECTION_SIZE);
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // lr
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r12
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r11
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r10
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r9
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r8
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r7
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r6
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r5
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r4
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r3
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r2
+  *(--pcb.stack_pointer) = 0xDEADBEEF; // r1
+  *(--pcb.stack_pointer) = (uint32_t)pcb.argv; // r0
+  *(--pcb.stack_pointer) = (uint32_t)eh.entry_point; // context switch lr
+  *(--pcb.stack_pointer) = 0x60000110; // SPSR
+  pcb.state = READY;
 
-  if(kernel_set_args(pcb_curr, argv) != STATUS_OK){
-    SYS_LOGE("failed to set args");
-    return -1;
-  }
-
-  *(--pcb_curr->stack_pointer) = (uint32_t)_exit; // lr
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r12
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r11
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r10
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r9
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r8
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r7
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r6
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r5
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r4
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r3
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r2
-  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r1
-  *(--pcb_curr->stack_pointer) = (uint32_t)pcb_curr->argv; // r0
-  *(--pcb_curr->stack_pointer) = (uint32_t)eh.entry_point; // context switch lr
-  *(--pcb_curr->stack_pointer) = 0x60000110; // SPSR
-  SYS_LOGI("sp: %#x", pcb_curr->stack_pointer);
-  pcb_curr->state = READY;
-
-
-  //while(1);
-/*
-  int file_size = kernel_lseek(fd, 0, SEEK_END);
-  if(file_size == -1){
-    SYS_LOGE("lseek failed");
-    return -1;
-  }
-  SYS_LOGD("file size: %d", file_size);
-
-  int offset = kernel_lseek(fd, 0, SEEK_SET);
-  if(offset == -1){
-    SYS_LOGE("lseek failed");
-    return -1;
-  }
-
-  process_control_block_t* pcb = pcb_curr;
-  pcb_curr->virtual_stack_frame = pcb_curr->stack_frame;
-  pcb_curr->stack_pointer = (uint32_t*)(pcb_curr->stack_frame + SECTION_SIZE);
-  STATUS_OK_OR_RETURN(proc_frame_write_enable(pcb_curr));
-
-  kernel_set_args(pcb, argv);
-  int bytes_read = kernel_read(fd, (void*)pcb->text_frame, file_size);
-  SYS_LOGD("bytes_read: %d", bytes_read); 
-   
-  *(--pcb->stack_pointer) = (uint32_t)_exit; // lr
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r12
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r11
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r10
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r9
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r8
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r7
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r6
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r5
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r4
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r3
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r2
-  *(--pcb->stack_pointer) = 0xDEADBEEF; // r1
-  *(--pcb->stack_pointer) = (uint32_t)pcb->argv; // r0
-  *(--pcb->stack_pointer) = (uint32_t)0x8000; // context switch lr
-  *(--pcb->stack_pointer) = 0x60000110; // SPSR
-
-  pcb_curr->state = READY;
-  pcb_curr = pcb;
-
-  STATUS_OK_OR_RETURN(proc_frame_write_disable(pcb_curr));
-  */
+  *pcb_curr = pcb;
   return -1;
 }
 

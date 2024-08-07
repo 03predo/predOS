@@ -7,7 +7,7 @@
 #define ELF_MACHINE_ARM     0x28
 
 status_t elf_print_file_header(elf_file_header_t eh){
-  SYS_LOGI(
+  SYS_LOGD(
     "elf file header:\n"
     "   signature: %#x %#x %#x %#x\n"
     "   word_size: %#x\n"
@@ -53,7 +53,7 @@ status_t elf_print_file_header(elf_file_header_t eh){
 }
 
 status_t elf_print_program_header(elf_program_header_t ph){
-  SYS_LOGI(
+  SYS_LOGD(
     "elf program header:\n"
     "   type: %#x\n"
     "   offset: %#x\n"

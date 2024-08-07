@@ -1,5 +1,5 @@
 add_executable(echo main.c)
-target_link_libraries(echo PRIVATE syscall)
+target_link_libraries(echo PRIVATE start syscall)
 
 add_custom_command(
   TARGET echo POST_BUILD
