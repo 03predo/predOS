@@ -2,8 +2,7 @@
 
 #include "status.h"
 
-#define ELF_32_BIT 1
-#define ELF_LITTLE_ENDIAN 1
+#define ELF_SEGMENT_LOADABLE 0x1
 
 #pragma pack(push, 1)
 typedef struct {
@@ -27,7 +26,7 @@ typedef struct {
   uint16_t section_header_size;
   uint16_t section_header_num;
   uint16_t section_header_index;
-} elf_header_t;
+} elf_file_header_t;
 #pragma pack(pop)
 
 #pragma pack(push, 1)
@@ -40,7 +39,11 @@ typedef struct {
   uint32_t size_in_memory;
   uint32_t flags;
   uint32_t alignment;
-} program_header_t;
+} elf_program_header_t;
 #pragma pack(pop)
 
-status_t elf_validate_header(elf_header_t eh);
+
+status_t elf_print_file_header(elf_file_header_t eh);
+status_t elf_print_program_header(elf_program_header_t ph);
+status_t elf_validate_header(elf_file_header_t eh);
+

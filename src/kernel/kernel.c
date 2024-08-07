@@ -205,16 +205,118 @@ status_t kernel_set_args(process_control_block_t* pcb, char* const argv[]){
 }
 
 int kernel_execv(const char *pathname, char *const argv[]){
+
+  /*
+   * 1. read file header
+   * 2. for each program header
+   *    - load into physical addr + pcb->text_frame
+   *    - set lr to entry point
+   *
+   * NOTE: in proc_map we need to map pcb->text_frame + 0x8000 to 0x8000
+   */
+
   SYS_LOGD("filename: %s", pathname); 
 
   int fd = kernel_open(pathname, O_RDWR);
   if(fd == -1){
     SYS_LOGE("open failed"); 
-    //proc_destroy(pcb);
     return -1;
   }
-  SYS_LOGD("opened file");
 
+  elf_file_header_t eh;
+  int bytes_read = kernel_read(fd, (void*)&eh, sizeof(elf_file_header_t));
+  if(bytes_read != sizeof(elf_file_header_t)){
+    SYS_LOGE("read failed %d != %d", bytes_read, sizeof(elf_file_header_t));
+    return -1;
+  }
+
+  if(elf_validate_header(eh) != STATUS_OK){
+    SYS_LOGE("elf header is invalid");
+    return -1;
+  }
+
+  STATUS_OK_OR_RETURN(proc_frame_write_enable(pcb_curr));
+
+  elf_program_header_t ph;
+  for(uint32_t i = 0; i < eh.program_header_num; ++i){
+    bytes_read = kernel_read(fd, (void*)&ph, sizeof(elf_program_header_t));
+    if(bytes_read != sizeof(elf_program_header_t)){
+      SYS_LOGE("read failed");
+      return -1;
+    }
+    SYS_LOGI("program header %d", i);
+    elf_print_program_header(ph);
+
+    if(ph.type != ELF_SEGMENT_LOADABLE) continue;
+
+    if(ph.virtual_address != ph.physical_address){
+      // currently don't support apps with different mappings
+      SYS_LOGE("virtual addr does not match physical addr"); 
+      return -1;
+    }
+
+    int prev_offset = kernel_lseek(fd, 0, SEEK_CUR);
+    if(prev_offset == -1){
+      SYS_LOGE("lseek failed");
+      return -1;
+    }
+
+    int offset = kernel_lseek(fd, ph.offset, SEEK_SET);
+    if(offset != ph.offset){
+      SYS_LOGE("lseek failed");
+      return -1;
+    }
+
+    bytes_read = kernel_read(fd, (void*)(pcb_curr->text_frame + ph.physical_address), ph.size_in_file);  
+    if(bytes_read != ph.size_in_file){
+      SYS_LOGE("read failed");
+      return -1;
+    }
+
+    offset = kernel_lseek(fd, prev_offset, SEEK_SET);
+    if(offset != prev_offset){
+      SYS_LOGE("lseek_failed");
+      return -1;
+    }
+    
+  }
+
+  SYS_LOGI("finished loading file");
+  /*
+  proc_frame_map(pcb_curr);
+  uint32_t* entry_instruction = (uint32_t*)0x14a40;
+  SYS_LOGI("entry_instruction: %#x", *entry_instruction);
+*/
+  pcb_curr->virtual_stack_frame = pcb_curr->stack_frame;
+  pcb_curr->stack_pointer = (uint32_t*)(pcb_curr->stack_frame + SECTION_SIZE);
+
+  if(kernel_set_args(pcb_curr, argv) != STATUS_OK){
+    SYS_LOGE("failed to set args");
+    return -1;
+  }
+
+  *(--pcb_curr->stack_pointer) = (uint32_t)_exit; // lr
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r12
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r11
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r10
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r9
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r8
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r7
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r6
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r5
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r4
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r3
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r2
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r1
+  *(--pcb_curr->stack_pointer) = (uint32_t)pcb_curr->argv; // r0
+  *(--pcb_curr->stack_pointer) = (uint32_t)eh.entry_point; // context switch lr
+  *(--pcb_curr->stack_pointer) = 0x60000110; // SPSR
+  SYS_LOGI("sp: %#x", pcb_curr->stack_pointer);
+  pcb_curr->state = READY;
+
+
+  //while(1);
+/*
   int file_size = kernel_lseek(fd, 0, SEEK_END);
   if(file_size == -1){
     SYS_LOGE("lseek failed");
@@ -258,6 +360,7 @@ int kernel_execv(const char *pathname, char *const argv[]){
   pcb_curr = pcb;
 
   STATUS_OK_OR_RETURN(proc_frame_write_disable(pcb_curr));
+  */
   return -1;
 }
 
@@ -267,6 +370,7 @@ void kernel_exit(int exit_status){
     SYS_LOGE("failed to frame write disable");
     return;
   }
+
   if(proc_destroy(pcb_curr) != STATUS_OK){
     SYS_LOGE("failed to destroy pcb");
     return;
@@ -399,7 +503,8 @@ int kernel_start(){
 
   char *args[] = {"init", NULL};
   execv(args[0], args);
-  
+
+  SYS_LOGI("returned from execv")
   while(1);
 }
 

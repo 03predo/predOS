@@ -57,9 +57,9 @@ void __attribute__((interrupt("ABORT"))) prefetch_abort_handler(uint32_t lr){
   }
 }
 
-void data_abort_handler(uint32_t lr, uint32_t dfsr){
+void data_abort_handler(uint32_t lr, uint32_t dfsr, uint32_t sp){
   asm inline("cpsie i");
-  SYS_LOG("DATA ABORT: %#x, %#x", lr, dfsr);
+  SYS_LOG("DATA ABORT: %#x, %#x, %#x", lr, dfsr, sp);
   while(1){
     gpio_pulse(LED_PIN, 4);
     sys_timer_sleep(1000000);

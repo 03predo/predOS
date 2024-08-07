@@ -1,9 +1,14 @@
 #include "elf.h"
 #include "sys_log.h"
 
-status_t elf_print_header(elf_header_t eh){
+#define ELF_32_BIT          0x01
+#define ELF_LITTLE_ENDIAN   0x01
+#define ELF_FILE_TYPE_EXEC  0x02
+#define ELF_MACHINE_ARM     0x28
+
+status_t elf_print_file_header(elf_file_header_t eh){
   SYS_LOGI(
-    "elf header:\n"
+    "elf file header:\n"
     "   signature: %#x %#x %#x %#x\n"
     "   word_size: %#x\n"
     "   endianness: %#x\n"
@@ -47,7 +52,32 @@ status_t elf_print_header(elf_header_t eh){
   return STATUS_OK;
 }
 
-status_t elf_validate_header(elf_header_t eh){ 
+status_t elf_print_program_header(elf_program_header_t ph){
+  SYS_LOGI(
+    "elf program header:\n"
+    "   type: %#x\n"
+    "   offset: %#x\n"
+    "   virtual_address: %#x\n"
+    "   physical_address: %#x\n"
+    "   size_in_file: %#x\n"
+    "   size_in_memory: %#x\n"
+    "   flags: %#x\n"
+    "   alignment: %#x\n",
+    ph.type,
+    ph.offset,
+    ph.virtual_address,
+    ph.physical_address,
+    ph.size_in_file,
+    ph.size_in_memory,
+    ph.flags,
+    ph.alignment
+  );
+
+  return STATUS_OK;
+}
+
+
+status_t elf_validate_header(elf_file_header_t eh){ 
   uint8_t elf_signature[] = {0x7f, 0x45, 0x4c, 0x46};
   for(uint32_t i = 0; i < sizeof(elf_signature); ++i){
     if(eh.signature[i] != elf_signature[i]){
@@ -70,6 +100,27 @@ status_t elf_validate_header(elf_header_t eh){
     SYS_LOGE("invalid elf version: %#x", eh.elf_version0);
     return STATUS_ERR;
   }
-  elf_print_header(eh); 
+
+  if(eh.object_file_type != ELF_FILE_TYPE_EXEC){
+    SYS_LOGE("invalid file type: %#x", eh.object_file_type);
+    return STATUS_ERR;
+  }
+
+  if(eh.machine != ELF_MACHINE_ARM){
+    SYS_LOGE("invalid machine: %#x", eh.machine);
+    return STATUS_ERR;
+  }
+
+  if(eh.entry_point < 0x8000){
+    SYS_LOGE("invalid entry point: %#x", eh.entry_point);
+    return STATUS_ERR;
+  }
+
+  if(eh.program_header_size != sizeof(elf_program_header_t)){
+    SYS_LOGE("invalid program header size: %#x", eh.program_header_size);
+  }
+
+  elf_print_file_header(eh); 
   return STATUS_OK;
 }
+

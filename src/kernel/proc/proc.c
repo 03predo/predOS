@@ -98,7 +98,7 @@ status_t proc_frame_map(process_control_block_t* pcb){
   STATUS_OK_OR_RETURN(mmu_small_page_set_executable(&small_page, true));
 
   for(int i = 0; i < (256 - SMALL_PAGE_BASE(0x8000)); ++i){
-    STATUS_OK_OR_RETURN(mmu_small_page_set_base(&small_page, SMALL_PAGE_BASE(pcb->text_frame) + i));
+    STATUS_OK_OR_RETURN(mmu_small_page_set_base(&small_page, SMALL_PAGE_BASE(pcb->text_frame + 0x8000) + i));
     STATUS_OK_OR_RETURN(mmu_root_coarse_page_table_set_entry(SMALL_PAGE_BASE(0x8000) + i, small_page));
   }
   return STATUS_OK;
