@@ -19,6 +19,21 @@ _prefetch_abort_handler:
   b prefetch_abort_handler
 
 _data_abort_handler:
+  #mov r0, lr
+  #mrc p15, 0, r1, c5, c0, 0
+
+  mrs r2, cpsr
+  bic r2, r2, #(0x1f) // clear last mode
+  orr r2, r2, #(CPSR_MODE_SYSTEM)
+  msr cpsr_c, r2
+  mov r2, sp
+
+  mrs r0, cpsr
+  bic r0, r0, #(0x1f) // clear last mode
+  orr r0, r0, #(CPSR_MODE_ABORT)
+  msr cpsr_c, r0
+  mov r0, sp
+
   mov r0, lr
   mrc p15, 0, r1, c5, c0, 0
   b data_abort_handler

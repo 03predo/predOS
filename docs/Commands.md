@@ -1,5 +1,8 @@
 ```
-plink.exe -serial COM6 -sercfg 3000000
+git submodule update --init --recursive
+```
+```
+plink.exe -serial COM6 -sercfg 115200
 ```
 ```
 hexdump -C build/img/predOS.img | head
