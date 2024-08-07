@@ -636,7 +636,9 @@ status_t fat_read_file(int fd, char *buf, int len, int* bytes_read){
   memcpy(buf, block_buf + block_index, memcpy_size);
   buf_offset = memcpy_size;
 
-  if(block_num > 1){
+  if(block_num == 0){
+    return STATUS_OK;
+  }else if(block_num > 1){
     STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + 1, block_num - 1, (emmc_block_t*)&buf[buf_offset])); 
     buf_offset += EMMC_BLOCK_SIZE * (block_num - 1);
   }

@@ -13,6 +13,7 @@
 #include "util.h"
 #include "fat.h"
 #include "proc.h"
+#include "elf.h"
 
 #define LED_PIN 16
 #define MAX_PROCESSES 10
@@ -93,6 +94,8 @@ status_t kernel_read_queue_update(int fd, uint32_t size){
   return STATUS_ERR;
 }
 
+
+
 int kernel_open(const char *pathname, int flags){
   int fd = -1;
   if(fat_open_file(pathname, flags, &fd) != STATUS_OK){
@@ -165,13 +168,13 @@ int kernel_lseek(int file, int offset, int whence){
 status_t kernel_set_args(process_control_block_t* pcb, char* const argv[]){
   uint32_t arg_num = 0;
   while(argv[arg_num] != NULL){
-    SYS_LOGI("argv[%d]=%s", arg_num, argv[arg_num]);
+    SYS_LOGD("argv[%d]=%s", arg_num, argv[arg_num]);
     arg_num++;
   }
 
   pcb->stack_pointer -= arg_num + 1;
   pcb->argv = (char**)pcb->stack_pointer;
-  SYS_LOGI("pcb->argv: %#x", pcb->argv);
+  SYS_LOGD("pcb->argv: %#x", pcb->argv);
 
   for(uint32_t i = 0; i < arg_num; ++i){
     uint32_t arg_size = 0;
@@ -179,7 +182,7 @@ status_t kernel_set_args(process_control_block_t* pcb, char* const argv[]){
       arg_size++;
     }
     arg_size++;
-    SYS_LOGI("arg_size[%d]: %d", i, arg_size);
+    SYS_LOGD("arg_size[%d]: %d", i, arg_size);
 
     uint32_t offset = (arg_size + sizeof(uint32_t) - 1) / sizeof(uint32_t);
 
@@ -195,7 +198,7 @@ status_t kernel_set_args(process_control_block_t* pcb, char* const argv[]){
 
   arg_num = 0;
   while(pcb->argv[arg_num] != NULL){
-    SYS_LOGI("pcb->argv[%d]: %s", arg_num, pcb->argv[arg_num]);
+    SYS_LOGD("pcb->argv[%d]: %s", arg_num, pcb->argv[arg_num]);
     arg_num++;
   }
   return STATUS_OK;

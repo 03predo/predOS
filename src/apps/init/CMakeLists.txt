@@ -13,4 +13,5 @@ add_custom_command(
   TARGET image_add_init POST_BUILD
   DEPENDS syscall
   COMMAND ${CMAKE_SOURCE_DIR}/scripts/img_add_file.sh ${IMG_DIR}/mbr ${IMG_DIR}/fat ${CMAKE_CURRENT_BINARY_DIR}/init ${IMG_DIR}/predOS.img
+  COMMAND ${CMAKE_SOURCE_DIR}/scripts/img_add_file.sh ${IMG_DIR}/mbr ${IMG_DIR}/fat ${CMAKE_CURRENT_BINARY_DIR}/init.elf ${IMG_DIR}/predOS.img
 )
