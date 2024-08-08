@@ -9,7 +9,13 @@ typedef enum {
   RUNNING = 2,
   BLOCKED = 3,
   SLEEP = 4,
-}process_state_t;
+} process_state_t;
+
+typedef enum {
+  NONE = 0,
+  WAIT,
+  READ,
+} process_blocked_t;
 
 typedef struct {
   pid_t pid;
@@ -23,7 +29,9 @@ typedef struct {
   uint64_t timestamp;
   mmu_memory_attributes_t attributes;
   mmu_access_permissions_t permissions;
-}process_control_block_t;
+  process_blocked_t blocked;
+
+} process_control_block_t;
 
 status_t proc_create(process_control_block_t* pcb);
 status_t proc_destroy(process_control_block_t* pcb);

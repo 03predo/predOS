@@ -34,7 +34,6 @@ typedef struct {
 } read_transaction_t;
 
 read_transaction_t read_queue[MAX_PROCESSES];
-
 pid_t wait_queue[MAX_PROCESSES];
 
 status_t kernel_schedule(pid_t* pid){
@@ -86,6 +85,7 @@ status_t kernel_read_queue_update(int fd, uint32_t size){
       }
       
       pcb->state = READY; 
+      pcb->blocked = NONE;
       pcb->stack_pointer[2] = bytes_read;
       STATUS_OK_OR_RETURN(proc_frame_map(pcb_curr));
       return STATUS_OK;
@@ -132,6 +132,7 @@ int kernel_read(int file, char *ptr, int len){
       }
     }
     pcb_curr->state = BLOCKED;
+    pcb_curr->blocked = READ;
     pid_t pid = MAX_PROCESSES;
     while(kernel_schedule(&pid) != STATUS_OK);
     pcb_curr = &pcb_list[pid];
@@ -326,6 +327,7 @@ void kernel_exit(int exit_status){
       pcb_parent->stack_pointer[2] = pcb_curr->pid;
       pcb_parent->stack_pointer[3] = exit_status;
       pcb_parent->state = READY;
+      pcb_parent->blocked = NONE;
       wait_queue[i] = -1;
     }
   }
@@ -366,7 +368,6 @@ int kernel_fork(){
 }
 
 int kernel_wait(){
-  pcb_curr->state = BLOCKED;
 
   int index = -1;
   for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
@@ -383,6 +384,8 @@ int kernel_wait(){
 
   wait_queue[index] = pcb_curr->pid;
 
+  pcb_curr->state = BLOCKED;
+  pcb_curr->blocked = WAIT;
   pid_t pid = MAX_PROCESSES;
   while(kernel_schedule(&pid) != STATUS_OK);
   pcb_curr = &pcb_list[pid];
@@ -427,7 +430,8 @@ int kernel_start(){
       .text_frame = 0,
       .stack_frame = 0,
       .stack_pointer = NULL,
-      .timestamp = 0
+      .timestamp = 0,
+      .blocked = NONE
     };
     wait_queue[i] = -1;
     read_queue[i].pid = -1;
