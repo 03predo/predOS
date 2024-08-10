@@ -582,6 +582,12 @@ status_t fat_open_file(const char* file_name, int flags, int* fd){
   }
 
   if(fat_get_dir_entry(file_name, dir_entry) == STATUS_OK){
+    if(flags & O_EXCL){
+      SYS_LOGE("file already exists");
+      memset(&system_inode_table[*fd].dir_entry, 0, sizeof(fat_directory_entry_t));
+      *fd = -1;
+      return STATUS_ERR;
+    }
     if(flags & O_APPEND) system_inode_table[*fd].file_offset = dir_entry->file_size;
     return STATUS_OK;
   }
@@ -613,10 +619,11 @@ status_t fat_close_file(int fd){
 
 status_t fat_read_file(int fd, char *buf, int len, int* bytes_read){
   fat_inode_t* inode = &system_inode_table[fd];
-  if((inode->flags & (O_RDONLY | O_RDWR)) == 0){
+  if(((inode->flags & O_ACCMODE) != O_RDONLY) &&
+     ((inode->flags & O_ACCMODE) != O_RDWR)){
     SYS_LOGE("read failed invalid flags: %#x", inode->flags);
     return STATUS_ERR;
-  }else if(len > inode->dir_entry.file_size){
+  }else if(len > (inode->file_offset + inode->dir_entry.file_size)){
     SYS_LOGE("read length greater than file size: %d > %d", len, inode->dir_entry.file_size);
     return STATUS_ERR;
   }
@@ -718,6 +725,7 @@ status_t fat_write_file(int fd, char* buf, int len, int* bytes_written){
     }
   }
 
+  *bytes_written = len;
   return STATUS_OK;
 }
 

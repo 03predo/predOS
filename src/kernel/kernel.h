@@ -1,5 +1,6 @@
 #pragma once
 
+#include <signal.h>
 #include "status.h"
 #include "util.h"
 
@@ -14,10 +15,15 @@
 #define SVC_WAIT    0x08
 #define SVC_YIELD   0x09
 #define SVC_USLEEP  0x0a
+#define SVC_SIGNAL  0x0b
+#define SVC_RAISE   0x0c
+#define SVC_KILL    0x0d
+#define SVC_LED     0x0e
 
 status_t kernel_context_save(uint32_t* sp);
 status_t kernel_context_switch();
 status_t kernel_read_queue_update(int fd, uint32_t size);
+
 
 int kernel_open(const char *pathname, int flags);
 int kernel_close(int file);
@@ -30,4 +36,9 @@ int kernel_fork();
 int kernel_wait();
 int kernel_yield();
 int kernel_usleep(uint32_t timeout);
+sig_t kernel_signal(int signum, sig_t handler);
+int kernel_raise(int signum);
+int kernel_kill(pid_t pid, int signum);
+int kernel_led(int on);
+
 

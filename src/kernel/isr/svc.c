@@ -81,6 +81,32 @@ static status_t svc_usleep(uint32_t* sp){
   return STATUS_OK;
 }
 
+static status_t svc_signal(uint32_t* sp){
+  int signum = (int)sp[0];
+  sig_t handler = (sig_t)sp[1];
+  sp[0] = (uint32_t)kernel_signal(signum, handler);
+  return STATUS_OK;
+}
+
+static status_t svc_raise(uint32_t* sp){
+  int signum = (int)sp[0];
+  sp[0] = kernel_raise(signum);
+  return STATUS_OK;
+}
+
+static status_t svc_kill(uint32_t* sp){
+  pid_t pid = (pid_t)sp[0];
+  int signum = (int)sp[1];
+  sp[0] = kernel_kill(pid, signum);
+  return STATUS_OK;
+}
+
+static status_t svc_led(uint32_t* sp){
+  int on = (int)sp[0];
+  sp[0] = kernel_led(on);
+  return STATUS_OK;
+}
+
 status_t svc_handler(uint32_t* sp, uint32_t svc){
   SYS_LOGD("sp: %#x, svc: %#x", sp, svc);
   switch(svc){
@@ -116,6 +142,18 @@ status_t svc_handler(uint32_t* sp, uint32_t svc){
       break;
     case SVC_USLEEP:
       STATUS_OK_OR_RETURN(svc_usleep(sp));
+      break;
+    case SVC_SIGNAL:
+      STATUS_OK_OR_RETURN(svc_signal(sp));
+      break;
+    case SVC_RAISE:
+      STATUS_OK_OR_RETURN(svc_raise(sp));
+      break;
+    case SVC_KILL:
+      STATUS_OK_OR_RETURN(svc_kill(sp));
+      break;
+    case SVC_LED:
+      STATUS_OK_OR_RETURN(svc_led(sp));
       break;
     default:
       SYS_LOGE("undefined svc: %#x", svc);

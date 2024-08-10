@@ -29,6 +29,10 @@ status_t proc_create(process_control_block_t* pcb){
     .kernel_permission = READ_WRITE,
   };
 
+  for(uint32_t i = 0; i < NSIG; ++i){
+    pcb->signal_handler[i] = NULL;
+  }
+
   return STATUS_OK;
 }
 
@@ -45,7 +49,10 @@ status_t proc_destroy(process_control_block_t* pcb){
   }
   pcb->stack_frame = 0;
   pcb->stack_pointer = NULL;
-  
+
+  for(uint32_t i = 0; i < NSIG; ++i){
+    pcb->signal_handler[i] = NULL;
+  }
   return STATUS_OK;
 }
 

@@ -71,7 +71,7 @@ void cmd_handler(char* cmd, uint32_t size){
     return;
   }else if(child_pid == 0){
     if(execv(args[0], args) == -1){
-      _exit(-1);
+      exit(-1);
     }
   }else{
     int status = -1;

@@ -41,11 +41,13 @@ status_t kernel_schedule(pid_t* pid){
     *pid = (pcb_curr->pid + (i + 1)) % MAX_PROCESSES;
     if(pcb_list[*pid].state == READY){
       SYS_LOGD("found ready process %d", *pid);
+      pcb_list[*pid].state = RUNNING;
       return STATUS_OK;
     }else if(pcb_list[*pid].state == SLEEP){
       if(pcb_list[*pid].timestamp < sys_uptime()){
         pcb_list[*pid].state = READY;
         SYS_LOGD("unblocking process %d", *pid);
+        process_control_block_t* pcb = &pcb_list[*pid];
         return STATUS_OK;
       }
     }
@@ -61,9 +63,13 @@ status_t kernel_context_save(uint32_t* sp){
 }
 
 status_t kernel_context_switch(uint32_t* sp){
+  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+    if(pcb_list[i].state != UNUSED){
+      STATUS_OK_OR_RETURN(proc_frame_write_disable(&pcb_list[i]));
+    }
+  }
   STATUS_OK_OR_RETURN(proc_frame_map(pcb_curr));
   *sp = (uint32_t)pcb_curr->stack_pointer;
-  pcb_curr->state = RUNNING;
   return STATUS_OK;
 }
 
@@ -93,8 +99,6 @@ status_t kernel_read_queue_update(int fd, uint32_t size){
   }
   return STATUS_ERR;
 }
-
-
 
 int kernel_open(const char *pathname, int flags){
   int fd = -1;
@@ -302,6 +306,15 @@ int kernel_execv(const char *pathname, char *const argv[]){
 }
 
 void kernel_exit(int exit_status){ 
+  if(pcb_curr->state == SIGNAL){
+    pcb_curr->stack_pointer = pcb_curr->prev_stack_pointer;
+    pcb_curr->state = pcb_curr->prev_state;
+    pid_t pid = MAX_PROCESSES;
+    while(kernel_schedule(&pid) != STATUS_OK);
+    pcb_curr = &pcb_list[pid];
+    return;
+  }
+  
   SYS_LOGD("process %d exited with %d", pcb_curr->pid, exit_status);
   if(proc_frame_write_disable(pcb_curr) != STATUS_OK){
     SYS_LOGE("failed to frame write disable");
@@ -404,10 +417,75 @@ int kernel_yield(){
 int kernel_usleep(uint32_t timeout){
   pcb_curr->state = SLEEP;
   pcb_curr->timestamp = sys_uptime() + timeout;
-
+  
   pid_t pid = MAX_PROCESSES;
   while(kernel_schedule(&pid) != STATUS_OK);
   pcb_curr = &pcb_list[pid];
+  return 0;
+}
+
+sig_t kernel_signal(int signum, sig_t handler){
+  SYS_LOGD("signum: %d, handler: %#x", signum, handler);
+  sig_t prev_handler = pcb_curr->signal_handler[signum];
+  pcb_curr->signal_handler[signum] = handler;
+  return prev_handler;
+}
+
+int kernel_raise(int signum){ 
+  SYS_LOGD("signum: %d", signum);
+  if(pcb_curr->signal_handler[signum] == NULL){
+    SYS_LOGE("signal handler not registered for %d", signum);
+    return -1;
+  }
+
+  if(pcb_curr->state == RUNNING){
+    pcb_curr->prev_state = READY;
+  }else{
+    pcb_curr->prev_state = pcb_curr->state;
+  }
+
+  pcb_curr->state = SIGNAL;
+  pcb_curr->prev_stack_pointer = pcb_curr->stack_pointer; 
+
+  *(--pcb_curr->stack_pointer) = (uint32_t)_exit; // lr
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r12
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r11
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r10
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r9
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r8
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r7
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r6
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r5
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r4
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r3
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r2
+  *(--pcb_curr->stack_pointer) = 0xDEADBEEF; // r1
+  *(--pcb_curr->stack_pointer) = (uint32_t)signum; // r0
+  *(--pcb_curr->stack_pointer) = (uint32_t)pcb_curr->signal_handler[signum]; // context switch lr
+  *(--pcb_curr->stack_pointer) = 0x60000110; // SPSR
+  return 0;
+}
+
+int kernel_kill(pid_t pid, int sig){
+  if(pcb_list[pid].state == UNUSED){
+    SYS_LOGE("pid %d is not in use", pid);
+    return -1;
+  }
+  pcb_curr->state = READY;
+  pcb_curr = &pcb_list[pid];
+  proc_frame_map(pcb_curr);
+  return kernel_raise(sig);
+}
+
+int kernel_led(int on){
+  status_t ret;
+  if(on){
+    ret = gpio_clear(LED_PIN);
+  }else{
+    ret = gpio_set(LED_PIN);
+  }
+
+  if(ret != STATUS_OK) return -1;
   return 0;
 }
 
@@ -433,6 +511,9 @@ int kernel_start(){
       .timestamp = 0,
       .blocked = NONE
     };
+    for(uint32_t j = 0; j < NSIG; ++j){
+      pcb_list[i].signal_handler[j] = NULL;
+    }
     wait_queue[i] = -1;
     read_queue[i].pid = -1;
   }

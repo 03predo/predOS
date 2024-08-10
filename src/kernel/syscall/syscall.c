@@ -4,6 +4,7 @@ extern int errno;
 
 #include <sys/stat.h>
 #include <sys/times.h>
+#include <signal.h>
 
 #include "kernel.h"
 
@@ -57,9 +58,13 @@ int _execve(const char *filename, char *const argv[], char *const envp[]){
   return -1;
 }
 
-void _exit(int status){
+void __wrap_exit(int status){
   asm inline("SVC "XSTR(SVC_EXIT)); 
   while(1);
+}
+
+void _exit(int status){
+  __wrap_exit(status);
 }
 
 int _fork(){
@@ -89,6 +94,38 @@ int usleep(useconds_t usec){
   int status = -1;
   GET_R0(status);
   return status;
+}
+
+sig_t __wrap_signal(int signum, sig_t handler){
+  asm inline("SVC "XSTR(SVC_SIGNAL));
+  sig_t prev_handler = NULL;
+  GET_R0(prev_handler);
+  return prev_handler;
+}
+
+int __wrap_raise(int signum){
+  asm inline("SVC "XSTR(SVC_RAISE));
+  int ret = -1;
+  GET_R0(ret);
+  return ret;
+}
+
+int _kill(pid_t pid, int sig){
+  asm inline("SVC "XSTR(SVC_KILL));
+  int ret = -1;
+  GET_R0(ret);
+  return ret;
+}
+
+int led(int on){
+  asm inline("SVC "XSTR(SVC_LED));
+  int ret = -1;
+  GET_R0(ret);
+  return ret;
+}
+
+pid_t _getpid(void){
+  return -1;
 }
 
 int _isatty(int file){
