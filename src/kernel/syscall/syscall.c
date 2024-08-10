@@ -58,13 +58,9 @@ int _execve(const char *filename, char *const argv[], char *const envp[]){
   return -1;
 }
 
-void __wrap_exit(int status){
+void _exit(int status){
   asm inline("SVC "XSTR(SVC_EXIT)); 
   while(1);
-}
-
-void _exit(int status){
-  __wrap_exit(status);
 }
 
 int _fork(){
@@ -119,6 +115,13 @@ int _kill(pid_t pid, int sig){
 
 int led(int on){
   asm inline("SVC "XSTR(SVC_LED));
+  int ret = -1;
+  GET_R0(ret);
+  return ret;
+}
+
+int ps(){
+  asm inline("SVC "XSTR(SVC_PS));
   int ret = -1;
   GET_R0(ret);
   return ret;

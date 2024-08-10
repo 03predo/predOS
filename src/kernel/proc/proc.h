@@ -31,6 +31,7 @@ typedef struct {
   uint32_t* stack_pointer;
   uint32_t* prev_stack_pointer;
   uint64_t timestamp;
+  uint64_t start_time;
   mmu_memory_attributes_t attributes;
   mmu_access_permissions_t permissions;
   process_blocked_t blocked;
@@ -42,3 +43,4 @@ status_t proc_destroy(process_control_block_t* pcb);
 status_t proc_frame_write_disable(process_control_block_t* pcb);
 status_t proc_frame_write_enable(process_control_block_t* pcb);
 status_t proc_frame_map(process_control_block_t* pcb);
+const char* proc_state_to_string(process_state_t state);

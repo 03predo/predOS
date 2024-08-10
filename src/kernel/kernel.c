@@ -374,6 +374,8 @@ int kernel_fork(){
   pcb->stack_pointer[2] = 0; // set r0
   pcb->stack_pointer = (uint32_t*)(pcb_curr->stack_pointer);
   pcb->parent_pid = pcb_curr->pid;
+  pcb->start_time = sys_uptime();
+  SYS_LOGI("start_time: %u", pcb->start_time);
   pcb->state = READY; 
 
   STATUS_OK_OR_RETURN(proc_frame_write_disable(pcb));
@@ -489,6 +491,20 @@ int kernel_led(int on){
   return 0;
 }
 
+int kernel_ps(){
+  LOGI("%-12s| %-12s| %-12s| %-12s\n", "NAME", "PID", "STATE", "UPTIME");
+  for(uint32_t i = 0; i < MAX_PROCESSES; ++i){
+    if(pcb_list[i].state != UNUSED){
+      proc_frame_map(&pcb_list[i]);
+      LOGI("%-12s| ", pcb_list[i].argv[0]);
+      LOGI("%-12d| ", pcb_list[i].pid);
+      LOGI("%-12s| ", proc_state_to_string(pcb_list[i].state));
+      LOGI("%12uus\n", sys_uptime() - pcb_list[i].start_time);
+    }
+  }
+  return 0;
+}
+
 int kernel_start(){
   if(gpio_func(LED_PIN, GPIO_OUTPUT) != STATUS_OK) exit(-1);
   //if(arm_timer_init(0x800) != STATUS_OK) exit(-1);
@@ -521,6 +537,7 @@ int kernel_start(){
   pcb_curr = &pcb_list[0];
   pcb_curr->parent_pid = -1;
   proc_create(pcb_curr);
+  pcb_curr->start_time = sys_uptime();
 
   char *args[] = {"init", NULL};
   execv(args[0], args);

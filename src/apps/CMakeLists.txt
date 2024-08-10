@@ -4,4 +4,5 @@ add_subdirectory(echo)
 add_subdirectory(shell)
 add_subdirectory(blink)
 add_subdirectory(blinkd)
+add_subdirectory(ps)
 

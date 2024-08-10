@@ -107,6 +107,11 @@ static status_t svc_led(uint32_t* sp){
   return STATUS_OK;
 }
 
+static status_t svc_ps(uint32_t* sp){
+  sp[0] = kernel_ps();
+  return STATUS_OK;
+}
+
 status_t svc_handler(uint32_t* sp, uint32_t svc){
   SYS_LOGD("sp: %#x, svc: %#x", sp, svc);
   switch(svc){
@@ -154,6 +159,9 @@ status_t svc_handler(uint32_t* sp, uint32_t svc){
       break;
     case SVC_LED:
       STATUS_OK_OR_RETURN(svc_led(sp));
+      break;
+    case SVC_PS:
+      STATUS_OK_OR_RETURN(svc_ps(sp));
       break;
     default:
       SYS_LOGE("undefined svc: %#x", svc);

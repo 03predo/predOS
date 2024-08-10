@@ -19,6 +19,7 @@
 #define SVC_RAISE   0x0c
 #define SVC_KILL    0x0d
 #define SVC_LED     0x0e
+#define SVC_PS      0x0f
 
 status_t kernel_context_save(uint32_t* sp);
 status_t kernel_context_switch();
@@ -40,5 +41,6 @@ sig_t kernel_signal(int signum, sig_t handler);
 int kernel_raise(int signum);
 int kernel_kill(pid_t pid, int signum);
 int kernel_led(int on);
+int kernel_ps();
 
 

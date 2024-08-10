@@ -111,3 +111,22 @@ status_t proc_frame_map(process_control_block_t* pcb){
   return STATUS_OK;
 }
 
+const char* proc_state_to_string(process_state_t state){
+  switch(state){
+    case UNUSED:
+      return "unused";
+    case READY:
+      return "ready";
+    case RUNNING:
+      return "running";
+    case BLOCKED:
+      return "blocked";
+    case SLEEP:
+      return "sleep";
+    case SIGNAL:
+      return "signal";
+    default:
+      return "unknown";
+  }
+}
+
