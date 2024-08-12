@@ -382,7 +382,7 @@ status_t fat_find_free_cluster(uint32_t* cluster){
   for(uint32_t i = 0; i < bpb.fat_sector_count_16bit * (EMMC_BLOCK_SIZE / sizeof(uint16_t)); ++i){
     if(fat_block[i] == 0x0){
       *cluster = i;
-      SYS_LOGI("free cluster: %d", *cluster);
+      SYS_LOGD("free cluster: %d", *cluster);
       fat_block[i] = 0xffff;
       return STATUS_OK;
     }
@@ -479,13 +479,13 @@ status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_nu
 
   uint16_t* cluster_table = (uint16_t*)fat.sectors;
   uint32_t num_clusters = (num_blocks + sector_offset - 1) / bpb->sectors_per_cluster;
-  uint32_t consecutive_clusters = 0;
+  uint32_t consecutive_clusters = 1;
   uint32_t buffer_index = 0;
   uint32_t next_cluster = 0;
   uint32_t prev_cluster = absolute_cluster;
   uint32_t sectors_in_first_block = 0;
   uint32_t sectors_in_last_block = 0;
-  SYS_LOGD("abs: %#x, num_clusters: %d", absolute_cluster, num_clusters);
+  SYS_LOGD("abs: %#x, num_blocks: %d, num_clusters: %d", absolute_cluster, num_blocks, num_clusters);
 
   for(uint32_t i = 0; i < num_clusters; ++i){
     next_cluster = cluster_table[prev_cluster];
@@ -493,7 +493,6 @@ status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_nu
       consecutive_clusters++;
     }else{
       SYS_LOGD("next: %#x, prev: %#x", next_cluster, prev_cluster);
-      while(1);
       sectors_in_first_block = (bpb->sectors_per_cluster - (read_sector % bpb->sectors_per_cluster));
       sectors_in_last_block = (num_blocks - sectors_in_first_block) % bpb->sectors_per_cluster;
       STATUS_OK_OR_RETURN(emmc_read_block(
@@ -509,6 +508,7 @@ status_t fat_read_block(fat_directory_entry_t* dir_entry, uint32_t file_block_nu
 
   sectors_in_first_block = (bpb->sectors_per_cluster - (read_sector % bpb->sectors_per_cluster));
   sectors_in_last_block = (num_blocks - sectors_in_first_block) % bpb->sectors_per_cluster;
+  SYS_LOGD("read_sector: %#x, num_blocks: %d", read_sector, consecutive_clusters*bpb->sectors_per_cluster - (sector_offset - sectors_in_last_block));
   STATUS_OK_OR_RETURN(emmc_read_block(
     read_sector,
     consecutive_clusters*bpb->sectors_per_cluster - (sector_offset - sectors_in_last_block),
@@ -582,6 +582,12 @@ status_t fat_open_file(const char* file_name, int flags, int* fd){
   }
 
   if(fat_get_dir_entry(file_name, dir_entry) == STATUS_OK){
+    if(flags & O_EXCL){
+      SYS_LOGE("file already exists");
+      memset(&system_inode_table[*fd].dir_entry, 0, sizeof(fat_directory_entry_t));
+      *fd = -1;
+      return STATUS_ERR;
+    }
     if(flags & O_APPEND) system_inode_table[*fd].file_offset = dir_entry->file_size;
     return STATUS_OK;
   }
@@ -613,10 +619,11 @@ status_t fat_close_file(int fd){
 
 status_t fat_read_file(int fd, char *buf, int len, int* bytes_read){
   fat_inode_t* inode = &system_inode_table[fd];
-  if((inode->flags & (O_RDONLY | O_RDWR)) == 0){
+  if(((inode->flags & O_ACCMODE) != O_RDONLY) &&
+     ((inode->flags & O_ACCMODE) != O_RDWR)){
     SYS_LOGE("read failed invalid flags: %#x", inode->flags);
     return STATUS_ERR;
-  }else if(len > inode->dir_entry.file_size){
+  }else if(len > (inode->file_offset + inode->dir_entry.file_size)){
     SYS_LOGE("read length greater than file size: %d > %d", len, inode->dir_entry.file_size);
     return STATUS_ERR;
   }
@@ -641,7 +648,7 @@ status_t fat_read_file(int fd, char *buf, int len, int* bytes_read){
     STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + 1, block_num - 1, (emmc_block_t*)&buf[buf_offset])); 
     buf_offset += EMMC_BLOCK_SIZE * (block_num - 1);
   }
-
+  SYS_LOGD("buf_offset: %d, len: %d, block_index: %d", buf_offset, len, block_index);
   if(block_num > 0){
     STATUS_OK_OR_RETURN(fat_read_block(&inode->dir_entry, block_offset + block_num, 1, &block));      
     if(((len % EMMC_BLOCK_SIZE) + block_index) > EMMC_BLOCK_SIZE){
@@ -718,6 +725,7 @@ status_t fat_write_file(int fd, char* buf, int len, int* bytes_written){
     }
   }
 
+  *bytes_written = len;
   return STATUS_OK;
 }
 

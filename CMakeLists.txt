@@ -24,6 +24,8 @@ else()
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--wrap=signal")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--wrap=raise")
   set(KERNEL_LINKER_FLAGS "-T ${CMAKE_SOURCE_DIR}/cmake/link.ld")
 endif()
 

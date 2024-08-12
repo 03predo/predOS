@@ -34,3 +34,16 @@ docker run -id -v $PWD/:/root/predOS --name predos 03predo/predos:v1.1
 ```
 docker exec -it predos bash
 ```
+
+```
+uint8_t* buf = (uint8_t*)(pcb.text_frame);
+for(uint32_t i = 0x8000; i < 0x1500c; ++i){
+  if((i % 16) == 0){
+    LOGI("\n0x%08x", buf + i);
+  }
+  if((i % 8) == 0){
+    LOGI(" ");
+  }
+  LOGI("0x%02x ", buf[i]);
+}
+```

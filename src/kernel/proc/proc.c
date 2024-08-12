@@ -29,6 +29,10 @@ status_t proc_create(process_control_block_t* pcb){
     .kernel_permission = READ_WRITE,
   };
 
+  for(uint32_t i = 0; i < NSIG; ++i){
+    pcb->signal_handler[i] = NULL;
+  }
+
   return STATUS_OK;
 }
 
@@ -45,7 +49,10 @@ status_t proc_destroy(process_control_block_t* pcb){
   }
   pcb->stack_frame = 0;
   pcb->stack_pointer = NULL;
-  
+
+  for(uint32_t i = 0; i < NSIG; ++i){
+    pcb->signal_handler[i] = NULL;
+  }
   return STATUS_OK;
 }
 
@@ -102,5 +109,24 @@ status_t proc_frame_map(process_control_block_t* pcb){
     STATUS_OK_OR_RETURN(mmu_root_coarse_page_table_set_entry(SMALL_PAGE_BASE(0x8000) + i, small_page));
   }
   return STATUS_OK;
+}
+
+const char* proc_state_to_string(process_state_t state){
+  switch(state){
+    case UNUSED:
+      return "unused";
+    case READY:
+      return "ready";
+    case RUNNING:
+      return "running";
+    case BLOCKED:
+      return "blocked";
+    case SLEEP:
+      return "sleep";
+    case SIGNAL:
+      return "signal";
+    default:
+      return "unknown";
+  }
 }
 

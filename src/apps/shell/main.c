@@ -9,14 +9,13 @@
 #define MAX_ARG_NUM 10
 #define SHELL_TOKEN "predOS# "
 
-char cmd[MAX_COMMAND_SIZE];
-char* args[MAX_ARG_NUM + 1]; // +1 for NULL
 
 void cmd_handler(char* cmd, uint32_t size);
 
 int main(){
   uint8_t c = 0;
   uint32_t index = 0; 
+  char cmd[MAX_COMMAND_SIZE];
    
   write(STDOUT_FILENO, SHELL_TOKEN, sizeof(SHELL_TOKEN));
   while(read(STDIN_FILENO, &c, 1) != -1){
@@ -28,6 +27,7 @@ int main(){
     }else if(c == '\r'){
       write(STDOUT_FILENO, "\r\n", 2);
       cmd[index] = '\0';
+      APP_LOGD("CMD: %s", cmd);
       cmd_handler(cmd, index);
       write(STDOUT_FILENO, SHELL_TOKEN, sizeof(SHELL_TOKEN));
       index = 0;
@@ -47,6 +47,7 @@ int main(){
 }
 
 void cmd_handler(char* cmd, uint32_t size){
+  char* args[MAX_ARG_NUM + 1]; // +1 for NULL
   APP_LOGD("cmd: %s", cmd);
   uint32_t arg_num = 0;
   args[0] = cmd;
@@ -71,7 +72,7 @@ void cmd_handler(char* cmd, uint32_t size){
     return;
   }else if(child_pid == 0){
     if(execv(args[0], args) == -1){
-      _exit(-1);
+      exit(-1);
     }
   }else{
     int status = -1;
