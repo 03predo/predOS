@@ -9,6 +9,7 @@ project(
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DVERSION=\\\"${PROJECT_VERSION}\\\"")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DLOG_LEVEL=LOG_LEVEL_INFO")
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 if(PREDOS_TEST)
   set(IMG_DIR ${CMAKE_SOURCE_DIR}/build/img)
@@ -22,6 +23,7 @@ if(PREDOS_TEST)
 else()
   set(IMG_DIR ${CMAKE_BINARY_DIR}/img ) 
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=hard")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostartfiles")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,--wrap=signal")

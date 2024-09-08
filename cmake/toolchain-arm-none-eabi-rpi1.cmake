@@ -47,6 +47,7 @@ CACHE FILEPATH "The toolchain objdump command " FORCE )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv6zk" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mtune=arm1176jzf-s" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I/gcc-arm-9.2-2019.12-x86_64-arm-none-eabi/arm-none-eabi/include" )
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )
 set( CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )

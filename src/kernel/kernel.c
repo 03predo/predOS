@@ -540,8 +540,8 @@ int kernel_start(){
 
   char *args[] = {"init", NULL};
   execv(args[0], args);
-
   SYS_LOGI("returned from execv")
+
   while(1);
 }
 
@@ -558,5 +558,12 @@ int kernel_init(void)
 
   while(1);
 }
+
+int __gcov_execv(const char *path, char *const argv[]){
+  return execv(path, argv);
+}
+
+void __gcov_exit(void){}
+void __gcov_init (struct gcov_info *p __attribute__ ((unused))) {}
 
 
